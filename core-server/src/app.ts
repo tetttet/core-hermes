@@ -2,8 +2,9 @@ import { constants as zlibConstants } from "node:zlib";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express, { type ErrorRequestHandler } from "express";
-import helmet from "helmet";
+import express, { type ErrorRequestHandler, type RequestHandler } from "express";
+import * as helmetModule from "helmet";
+import type { HelmetOptions } from "helmet";
 import { pinoHttp } from "pino-http";
 import type { AppContext } from "./context.js";
 import { optionalAuth } from "./middleware/auth.js";
@@ -11,6 +12,16 @@ import { authRouter } from "./routes/auth.js";
 import { chatsRouter } from "./routes/chats.js";
 import { chatStreamRouter } from "./routes/chat-stream.js";
 import { healthRouter } from "./routes/health.js";
+
+type HelmetFactory = (options?: Readonly<HelmetOptions>) => RequestHandler;
+
+// Some deploy bundlers expose Helmet's dual ESM/CJS export as a namespace object.
+const helmetNamespace = helmetModule as unknown as {
+  default?: HelmetFactory;
+};
+const helmet = typeof helmetNamespace.default === "function"
+  ? helmetNamespace.default
+  : helmetModule as unknown as HelmetFactory;
 
 export function createApp(context: AppContext) {
   const app = express();
