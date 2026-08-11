@@ -1,0 +1,208 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_MODEL_ID } from "@/config/models";
+import type { ChatThread } from "@/types/chat";
+import { ChatSidebar } from "./chat-sidebar";
+
+const chats: ChatThread[] = [
+  {
+    id: "chat-1",
+    title: "Очень важный разговор",
+    modelId: DEFAULT_MODEL_ID,
+    messages: [],
+    createdAt: 1,
+    updatedAt: 1,
+  },
+];
+
+function renderSidebar(isCollapsed = false) {
+  return render(
+    <ChatSidebar
+      chats={chats}
+      activeChatId="chat-1"
+      isOpen
+      isBusy={false}
+      isCollapsed={isCollapsed}
+      onClose={vi.fn()}
+      onNewChat={vi.fn()}
+      onSelectChat={vi.fn()}
+      onDeleteChat={vi.fn()}
+      onRenameChat={vi.fn()}
+      onToggleFavoriteChat={vi.fn()}
+      onToggleCollapse={vi.fn()}
+    />,
+  );
+}
+
+describe("ChatSidebar", () => {
+  afterEach(cleanup);
+
+  it("uses the transparent theme-aware logo", () => {
+    const { container } = renderSidebar();
+
+    expect(container.querySelector('.sidebar-logo[src="/yahya.svg"]')).not.toBeNull();
+  });
+
+  it("shows the chat title tooltip only in collapsed mode", () => {
+    const { rerender } = renderSidebar();
+    const chatButton = screen.getByRole("button", { name: "Очень важный разговор" });
+
+    fireEvent.mouseEnter(chatButton.closest(".tooltip-anchor")!);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+
+    rerender(
+      <ChatSidebar
+        chats={chats}
+        activeChatId="chat-1"
+        isOpen
+        isBusy={false}
+        isCollapsed
+        onClose={vi.fn()}
+        onNewChat={vi.fn()}
+        onSelectChat={vi.fn()}
+        onDeleteChat={vi.fn()}
+        onRenameChat={vi.fn()}
+        onToggleFavoriteChat={vi.fn()}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+
+    const collapsedChatButton = screen.getByRole("button", {
+      name: "Очень важный разговор",
+    });
+    fireEvent.mouseEnter(collapsedChatButton.closest(".tooltip-anchor")!);
+    expect(screen.getByRole("tooltip").textContent).toBe("Очень важный разговор");
+  });
+
+  it("keeps the three-dot menu stable until the trigger or an outside area is pressed", () => {
+    const { container } = renderSidebar();
+    const actionsButton = screen.getByRole("button", {
+      name: "Действия с чатом «Очень важный разговор»",
+    });
+
+    fireEvent.click(actionsButton);
+    expect(screen.getByRole("menu")).toBeDefined();
+
+    fireEvent.mouseLeave(container.querySelector(".sidebar-chat")!);
+    expect(screen.getByRole("menu")).toBeDefined();
+
+    fireEvent.pointerDown(actionsButton);
+    fireEvent.click(actionsButton);
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.click(actionsButton);
+    expect(screen.getByRole("menu")).toBeDefined();
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("moves favorite chats above newer regular chats", () => {
+    const favoriteChat: ChatThread = {
+      ...chats[0],
+      id: "chat-favorite",
+      title: "Избранный разговор",
+      isFavorite: true,
+      updatedAt: 1,
+    };
+    const recentChat: ChatThread = {
+      ...chats[0],
+      id: "chat-recent",
+      title: "Недавний разговор",
+      updatedAt: 10,
+    };
+
+    const { container } = render(
+      <ChatSidebar
+        chats={[recentChat, favoriteChat]}
+        activeChatId="chat-recent"
+        isOpen
+        isBusy={false}
+        isCollapsed={false}
+        onClose={vi.fn()}
+        onNewChat={vi.fn()}
+        onSelectChat={vi.fn()}
+        onDeleteChat={vi.fn()}
+        onRenameChat={vi.fn()}
+        onToggleFavoriteChat={vi.fn()}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+
+    const titles = Array.from(
+      container.querySelectorAll(".sidebar-chat-title"),
+      (element) => element.textContent,
+    );
+    expect(titles).toEqual(["Избранный разговор", "Недавний разговор"]);
+    expect(screen.getByText("Избранные")).toBeDefined();
+    expect(screen.getByText("Недавние")).toBeDefined();
+  });
+
+  it("offers a favorite action in the three-dot menu", () => {
+    const onToggleFavoriteChat = vi.fn();
+    render(
+      <ChatSidebar
+        chats={chats}
+        activeChatId="chat-1"
+        isOpen
+        isBusy={false}
+        isCollapsed={false}
+        onClose={vi.fn()}
+        onNewChat={vi.fn()}
+        onSelectChat={vi.fn()}
+        onDeleteChat={vi.fn()}
+        onRenameChat={vi.fn()}
+        onToggleFavoriteChat={onToggleFavoriteChat}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Действия с чатом «Очень важный разговор»",
+      }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "В избранное" }));
+
+    expect(onToggleFavoriteChat).toHaveBeenCalledWith("chat-1");
+  });
+
+  it("opens profile, settings, and help links from the user block", () => {
+    renderSidebar();
+
+    expect(screen.queryByRole("menuitem", { name: "Настройки" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Настройки" })).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню пользователя" }),
+    );
+
+    const menu = screen.getByRole("menu");
+    expect(menu.getAttribute("data-open")).toBe("true");
+    expect(screen.getByRole("menuitem", { name: "Профиль" }).getAttribute("href")).toBe(
+      "/profile",
+    );
+    expect(screen.getByRole("menuitem", { name: "Настройки" }).getAttribute("href")).toBe(
+      "/settings",
+    );
+    expect(
+      screen.getByRole("menuitem", { name: "Получить помощь" }).getAttribute("href"),
+    ).toBe("/help");
+  });
+
+  it("closes the user menu with Escape or an outside press", () => {
+    renderSidebar();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню пользователя" }),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Открыть меню пользователя" }),
+    );
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+});

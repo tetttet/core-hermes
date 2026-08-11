@@ -1,0 +1,62 @@
+import {
+  AUTO_MODEL_ID,
+  VISION_FALLBACK_MODEL_IDS,
+  findModel,
+  modelAccepts,
+  type AttachmentKind,
+} from "@/config/models";
+
+export type ModelRoute = {
+  mode: "auto" | "manual";
+  candidates: string[];
+};
+
+type ResolveModelRouteOptions = {
+  selectedModelId: string;
+  attachmentKinds: readonly AttachmentKind[];
+  allowFallback: boolean;
+};
+
+function unique<T>(items: readonly T[]) {
+  return [...new Set(items)];
+}
+
+function supportsEveryAttachment(
+  modelId: string,
+  attachmentKinds: readonly AttachmentKind[],
+) {
+  return attachmentKinds.every((kind) => modelAccepts(modelId, kind));
+}
+
+export function resolveModelRoute({
+  selectedModelId,
+  attachmentKinds,
+  allowFallback,
+}: ResolveModelRouteOptions): ModelRoute {
+  const requiredKinds = unique(attachmentKinds);
+  const compatibleVisionModels = VISION_FALLBACK_MODEL_IDS.filter(
+    (modelId) =>
+      Boolean(findModel(modelId)) &&
+      supportsEveryAttachment(modelId, requiredKinds),
+  );
+
+  if (selectedModelId === AUTO_MODEL_ID) {
+    return { mode: "auto", candidates: compatibleVisionModels };
+  }
+
+  if (!supportsEveryAttachment(selectedModelId, requiredKinds)) {
+    return { mode: "manual", candidates: [] };
+  }
+
+  if (!allowFallback || requiredKinds.length === 0) {
+    return { mode: "manual", candidates: [selectedModelId] };
+  }
+
+  return {
+    mode: "manual",
+    candidates: unique([
+      selectedModelId,
+      ...compatibleVisionModels.filter((modelId) => modelId !== selectedModelId),
+    ]),
+  };
+}

@@ -1,0 +1,124 @@
+import Image from "next/image";
+import { findModel } from "@/config/models";
+import type { ChatMessage } from "@/types/chat";
+import { AttachmentPreview } from "./attachment-preview";
+import { CopyMessageButton } from "./copy-message-button";
+import { MarkdownMessage } from "./markdown-message";
+
+type MessageListProps = {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  progressMessage: string;
+};
+
+export function MessageList({
+  messages,
+  isLoading,
+  progressMessage,
+}: MessageListProps) {
+  const hasMessages = messages.length > 0;
+
+  return (
+    <>
+      <div
+        className="empty-chat-state pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-24 text-center"
+        data-visible={!hasMessages}
+        aria-hidden={hasMessages}
+      >
+        <h1 className="empty-chat-title text-2xl font-serif tracking-[-0.025em] sm:text-[38px]">
+          Чем я могу помочь?
+        </h1>
+      </div>
+
+      {hasMessages ? (
+        <div className="chat-message-list mx-auto w-full max-w-3xl space-y-7 px-4 pb-8 pt-8 sm:px-6 sm:pt-12">
+          {messages.map((message) => (
+            <article
+              key={message.id}
+              className="chat-message text-[15px] leading-7"
+            >
+              {message.role === "user" ? (
+                <div className="user-message ml-auto w-fit max-w-[92%] rounded-2xl rounded-br-md p-2 sm:max-w-[85%]">
+                  {message.attachments?.length ? (
+                    <AttachmentPreview attachments={message.attachments} />
+                  ) : null}
+                  {message.content ? (
+                    <div className="px-2 py-0.5">
+                      <MarkdownMessage>{message.content}</MarkdownMessage>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="px-1">
+                  {message.content ? (
+                    <MarkdownMessage>{message.content}</MarkdownMessage>
+                  ) : null}
+                  {message.status === "streaming" && !message.content ? (
+                    <TypingIndicator progressMessage={progressMessage} />
+                  ) : null}
+                  {message.status === "error" ? (
+                    <p className="message-error mt-2 text-xs leading-5">
+                      {message.content
+                        ? "Частичный ответ сохранён. Можно повторить запрос."
+                        : "Ответ не получен. Можно повторить запрос."}
+                    </p>
+                  ) : null}
+                  {message.content && message.status !== "streaming" ? (
+                    <div className="message-actions mt-1">
+                      <CopyMessageButton content={message.content} />
+                      {message.notice ? (
+                        <span className="message-routing-notice">
+                          Резервная модель · {getRoutingModelName(message)}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </article>
+          ))}
+
+          {isLoading &&
+          !messages.some((message) => message.status === "streaming") ? (
+            <TypingIndicator progressMessage={progressMessage} />
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function getRoutingModelName(message: ChatMessage) {
+  if (message.modelId) {
+    const model = findModel(message.modelId);
+    if (model) return model.title;
+  }
+
+  return message.notice ?? "другая модель";
+}
+
+function TypingIndicator({ progressMessage = "" }: { progressMessage?: string }) {
+  const label = progressMessage.toLocaleLowerCase().includes("отправ")
+    ? "Отправляю…"
+    : "Думаю…";
+
+  return (
+    <div
+      className="flex items-center gap-2 px-1 py-2"
+      role="status"
+      aria-label="Hermes думает"
+    >
+      <span className="typing-logo-wrap" aria-hidden="true">
+        <Image
+          src="/yahya.svg"
+          alt=""
+          width={28}
+          height={28}
+          unoptimized
+          className="typing-logo"
+        />
+      </span>
+      <span className="typing-label">{label}</span>
+    </div>
+  );
+}
