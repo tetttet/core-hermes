@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
 import type { AppConfig } from "../config.js";
+import { cookieTransportOptions } from "./cookie-options.js";
 import { isUuid } from "./validation.js";
 
 const GUEST_COOKIE = "core_guest";
@@ -29,12 +30,10 @@ export function guestIdentity(
   if (!isUuid(signedValue)) {
     const options = {
       httpOnly: true,
-      secure: config.isProduction,
-      sameSite: "lax" as const,
       signed: true,
       maxAge: ONE_YEAR_MS,
       path: "/",
-      ...(config.cookieDomain ? { domain: config.cookieDomain } : {}),
+      ...cookieTransportOptions(request, config),
     };
     response.cookie(GUEST_COOKIE, cookieId, options);
   }

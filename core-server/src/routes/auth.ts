@@ -1,7 +1,8 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import type { QueryResult, QueryResultRow } from "pg";
 import type { AppContext } from "../context.js";
 import type { Profile } from "../lib/cache.js";
+import { cookieTransportOptions } from "../lib/cookie-options.js";
 import { canonicalEmail, cleanString, boundedInteger } from "../lib/validation.js";
 import { fixedWindowLimit } from "../middleware/fixed-window.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -30,36 +31,35 @@ function profile(row: UserRow): Profile {
   };
 }
 
-function cookieBase(context: AppContext, path = "/") {
+function cookieBase(request: Request, context: AppContext, path = "/") {
   return {
     httpOnly: true,
-    secure: context.config.isProduction,
-    sameSite: "lax" as const,
     path,
-    ...(context.config.cookieDomain ? { domain: context.config.cookieDomain } : {}),
+    ...cookieTransportOptions(request, context.config),
   };
 }
 
 function setAuthCookies(
   response: Response,
+  request: Request,
   context: AppContext,
   accessToken: string,
   refreshToken: string,
 ) {
-  const base = cookieBase(context);
+  const base = cookieBase(request, context);
   response.cookie("access_token", accessToken, {
     ...base,
     maxAge: context.config.accessTokenCookieTtlMs,
   });
   response.cookie("refresh_token", refreshToken, {
-    ...cookieBase(context, "/api/auth"),
+    ...cookieBase(request, context, "/api/auth"),
     maxAge: context.config.refreshTokenTtlDays * 86_400_000,
   });
 }
 
-function clearAuthCookies(response: Response, context: AppContext) {
-  response.clearCookie("access_token", cookieBase(context));
-  response.clearCookie("refresh_token", cookieBase(context, "/api/auth"));
+function clearAuthCookies(response: Response, request: Request, context: AppContext) {
+  response.clearCookie("access_token", cookieBase(request, context));
+  response.clearCookie("refresh_token", cookieBase(request, context, "/api/auth"));
 }
 
 type Queryable = {
@@ -153,7 +153,7 @@ export function authRouter(context: AppContext) {
       const userProfile = profile(user);
       context.caches.profiles.set(user.id, userProfile);
       const accessToken = await context.tokens.createAccessToken(user.id);
-      setAuthCookies(response, context, accessToken, refresh.token);
+      setAuthCookies(response, request, context, accessToken, refresh.token);
       response.status(201).json({ user: userProfile, accessToken });
     } catch (error) {
       if ((error as { code?: string }).code === "23505") {
@@ -191,14 +191,14 @@ export function authRouter(context: AppContext) {
     const userProfile = profile(user);
     context.caches.profiles.set(user.id, userProfile);
     context.activity.touch(user.id);
-    setAuthCookies(response, context, accessToken, refresh.token);
+    setAuthCookies(response, request, context, accessToken, refresh.token);
     response.json({ user: userProfile, accessToken });
   });
 
   router.post("/refresh", authLimit, async (request, response) => {
     const parsed = context.tokens.parseRefreshToken(request.cookies.refresh_token);
     if (!parsed) {
-      clearAuthCookies(response, context);
+      clearAuthCookies(response, request, context);
       response.status(401).json({ error: "Сессия истекла" });
       return;
     }
@@ -230,12 +230,12 @@ export function authRouter(context: AppContext) {
     });
     const user = result.rows[0];
     if (!user) {
-      clearAuthCookies(response, context);
+      clearAuthCookies(response, request, context);
       response.status(401).json({ error: "Сессия истекла" });
       return;
     }
     const accessToken = await context.tokens.createAccessToken(user.id);
-    setAuthCookies(response, context, accessToken, replacement.token);
+    setAuthCookies(response, request, context, accessToken, replacement.token);
     context.activity.touch(user.id);
     response.json({ accessToken });
   });
@@ -250,7 +250,7 @@ export function authRouter(context: AppContext) {
         values: [parsed.id, parsed.hash],
       });
     }
-    clearAuthCookies(response, context);
+    clearAuthCookies(response, request, context);
     response.status(204).end();
   });
 

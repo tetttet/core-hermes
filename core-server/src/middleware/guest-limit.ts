@@ -1,5 +1,6 @@
-import type { RequestHandler, Response } from "express";
+import type { Request, RequestHandler, Response } from "express";
 import type { AppContext } from "../context.js";
+import { cookieTransportOptions } from "../lib/cookie-options.js";
 import { guestIdentity } from "../lib/fingerprint.js";
 import { currentWeekStart } from "../services/guest-limits.js";
 
@@ -21,6 +22,7 @@ function quotaFloor(value: unknown, cookieId: string, limit: number) {
 
 function setQuotaCookie(
   context: AppContext,
+  request: Request,
   response: Response,
   cookieId: string,
   weekStart: string,
@@ -28,12 +30,10 @@ function setQuotaCookie(
 ) {
   response.cookie(QUOTA_COOKIE, `${cookieId}:${weekStart}:${used}`, {
     httpOnly: true,
-    secure: context.config.isProduction,
-    sameSite: "lax",
     signed: true,
     maxAge: QUOTA_COOKIE_MS,
     path: "/",
-    ...(context.config.cookieDomain ? { domain: context.config.cookieDomain } : {}),
+    ...cookieTransportOptions(request, context.config),
   });
 }
 
@@ -53,6 +53,7 @@ export function guestLimit(context: AppContext): RequestHandler {
       const result = await context.guestLimits.consume(identity.keys, minimumCount);
       setQuotaCookie(
         context,
+        request,
         response,
         identity.cookieId,
         result.weekStart,
