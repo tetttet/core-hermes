@@ -1,32 +1,9 @@
 import { createServer } from "node:http";
-import { createApp } from "./app.js";
-import { createCaches } from "./lib/cache.js";
-import { loadConfig } from "./config.js";
-import { createDatabase } from "./db.js";
-import { createLogger } from "./logger.js";
-import { TokenService } from "./lib/tokens.js";
-import { ActivityTracker } from "./services/activity-tracker.js";
-import { GuestLimitStore } from "./services/guest-limits.js";
+import app, { runtime } from "./app.js";
 
-const config = loadConfig();
-const logger = createLogger(config);
-const database = createDatabase(config, logger);
-const activity = new ActivityTracker(database, logger);
-const guestLimits = new GuestLimitStore(database, config, logger);
-const context = {
-  config,
-  logger,
-  database,
-  activity,
-  guestLimits,
-  caches: createCaches(config),
-  tokens: new TokenService(config),
-};
+const { activity, config, database, guestLimits, logger } = runtime;
 
-// Pay the Neon/TCP cold connection cost before accepting user traffic.
-await database.query({ name: "startup-ping", text: "SELECT 1" });
-
-const server = createServer(createApp(context));
+const server = createServer(app);
 server.keepAliveTimeout = 65_000;
 server.headersTimeout = 66_000;
 server.requestTimeout = 310_000;
