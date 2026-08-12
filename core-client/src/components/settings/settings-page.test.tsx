@@ -125,7 +125,7 @@ describe("SettingsPage", () => {
 
     render(<SettingsPage version="0.1.0" initialTab="data" />);
 
-    expect(screen.getByText("Занято файлами")).toBeDefined();
+    expect(screen.getByText("Локальные данные")).toBeDefined();
     expect(screen.getByText("photo.png")).toBeDefined();
     expect(screen.getByText(/Большой чат с вложением/)).toBeDefined();
     expect(screen.getByText("Файлов: 1")).toBeDefined();
@@ -145,6 +145,59 @@ describe("SettingsPage", () => {
       expect(saved.chats).toHaveLength(2);
       expect(saved.chats[1].messages[1].attachments).toBeUndefined();
       expect(screen.getByText("Файл «photo.png» удалён с устройства")).toBeDefined();
+    });
+  });
+
+  it("deletes every local chat while preserving other preferences", async () => {
+    window.localStorage.setItem("hermes-chat", JSON.stringify(chatStore));
+    render(<SettingsPage version="0.1.0" initialTab="data" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить все чаты" }));
+    expect(screen.getByText("Безвозвратно удалить все чаты?")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Удалить чаты" }));
+
+    await waitFor(() => {
+      const saved = JSON.parse(window.localStorage.getItem("hermes-chat") ?? "{}");
+      expect(saved.chats).toEqual([]);
+      expect(saved.draftModelId).toBe(DEFAULT_MODEL_ID);
+      expect(screen.getByText("Все чаты удалены")).toBeDefined();
+    });
+  });
+
+  it("deletes generated images separately from chats", async () => {
+    window.localStorage.setItem("hermes-chat", JSON.stringify(chatStore));
+    window.localStorage.setItem(
+      "hermes-generated-images-v1",
+      JSON.stringify([
+        {
+          id: "image-1",
+          dataUrl: "data:image/webp;base64,AA==",
+          mimeType: "image/webp",
+          prompt: "Город будущего",
+          model: "stable_diffusion",
+          style: "cinematic",
+          aspectRatio: "1:1",
+          quality: "standard",
+          seed: "42",
+          resolution: "512×512",
+          createdAt: 1,
+        },
+      ]),
+    );
+    render(<SettingsPage version="0.1.0" initialTab="data" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить изображения" }));
+    expect(screen.getByText("Удалить все созданные изображения?")).toBeDefined();
+    fireEvent.click(screen.getAllByRole("button", { name: "Удалить изображения" })[1]!);
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("hermes-generated-images-v1")).toBeNull();
+      expect(
+        JSON.parse(window.localStorage.getItem("hermes-chat") ?? "{}").chats,
+      ).toHaveLength(1);
+      expect(
+        screen.getByText("Все созданные изображения удалены с устройства"),
+      ).toBeDefined();
     });
   });
 });

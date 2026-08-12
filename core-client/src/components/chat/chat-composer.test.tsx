@@ -13,6 +13,24 @@ describe("ChatComposer", () => {
     });
   });
 
+  it("shows a clear AI accuracy notice below the input", () => {
+    render(
+      <ChatComposer
+        modelId={AUTO_MODEL_ID}
+        modelLocked={false}
+        onModelChange={vi.fn()}
+        onSend={vi.fn()}
+        onStop={vi.fn()}
+        isLoading={false}
+      />,
+    );
+
+    const notice = screen.getByRole("link", {
+      name: "Hermes — ИИ и может ошибаться. Проверяйте важную информацию.",
+    });
+    expect(notice.getAttribute("href")).toBe("/help");
+  });
+
   it("accepts a file dropped anywhere and opens its preview", async () => {
     render(
       <ChatComposer

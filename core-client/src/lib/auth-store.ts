@@ -7,6 +7,7 @@ import {
   type SurveyAnswer,
   type UserProfile,
 } from "./core-api";
+import { clearAccountChats, clearChatStore } from "./chat-storage";
 
 export type AuthSnapshot =
   | { status: "loading"; user: null }
@@ -20,7 +21,13 @@ let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<() => void>();
 
 function publish(next: AuthSnapshot) {
+  const shouldClearChats =
+    snapshot.status === "authenticated" &&
+    (next.status !== "authenticated" || next.user.id !== snapshot.user.id);
+
   snapshot = next;
+  if (shouldClearChats) clearChatStore();
+  else if (next.status === "guest") clearAccountChats();
   for (const listener of listeners) listener();
 }
 

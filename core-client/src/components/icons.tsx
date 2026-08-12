@@ -450,3 +450,118 @@ export function ChatBubbleIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function SparklesIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M8.15 2.75c.3 2.7 1.55 4 4.1 4.3-2.55.3-3.8 1.6-4.1 4.3-.3-2.7-1.55-4-4.1-4.3 2.55-.3 3.8-1.6 4.1-4.3Z"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14.25 10.75c.2 1.75 1.05 2.6 2.7 2.8-1.65.2-2.5 1.05-2.7 2.8-.2-1.75-1.05-2.6-2.7-2.8 1.65-.2 2.5-1.05 2.7-2.8Z"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function ImageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <rect
+        x="2.75"
+        y="3.25"
+        width="14.5"
+        height="13.5"
+        rx="2.25"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <circle cx="7" cy="7.5" r="1.35" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="m4.5 14 3.35-3.35 2.35 2.35 1.8-1.8 3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M10 3.25v8.5m0 0 3.25-3.25M10 11.75 6.75 8.5M4 14.25v1.5c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1.5"
+        stroke="currentColor"
+        strokeWidth="1.45"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function UploadIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M10 12.25v-8m0 0L6.75 7.5M10 4.25l3.25 3.25M4 13.75v1.5c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1.5"
+        stroke="currentColor"
+        strokeWidth="1.45"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function ExpandIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M7.25 3.75h-3.5v3.5m8.99-3.5h3.5v3.5m0 5.5v3.5h-3.5m-5.49 0h-3.5v-3.5"
+        stroke="currentColor"
+        strokeWidth="1.45"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M15.5 7.25V3.8m0 0h-3.45m3.45 0-2.1 2.1a5.75 5.75 0 1 0 1.78 5.6"
+        stroke="currentColor"
+        strokeWidth="1.45"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function SlidersIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M4 5.25h7m3 0h2M4 10h2m3 0h7M4 14.75h8m3 0h1"
+        stroke="currentColor"
+        strokeWidth="1.45"
+        strokeLinecap="round"
+      />
+      <circle cx="12.5" cy="5.25" r="1.5" stroke="currentColor" strokeWidth="1.35" />
+      <circle cx="7.5" cy="10" r="1.5" stroke="currentColor" strokeWidth="1.35" />
+      <circle cx="13.5" cy="14.75" r="1.5" stroke="currentColor" strokeWidth="1.35" />
+    </svg>
+  );
+}

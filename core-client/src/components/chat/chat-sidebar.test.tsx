@@ -37,10 +37,67 @@ function renderSidebar(isCollapsed = false) {
 describe("ChatSidebar", () => {
   afterEach(cleanup);
 
+  it("opens the explore page from the generation item", () => {
+    renderSidebar();
+
+    expect(
+      screen.getByRole("link", { name: "Генерация" }).getAttribute("href"),
+    ).toBe("/explore");
+  });
+
   it("uses the transparent theme-aware logo", () => {
     const { container } = renderSidebar();
 
     expect(container.querySelector('.sidebar-logo[src="/yahya.svg"]')).not.toBeNull();
+  });
+
+  it("shows lightweight chat skeletons while the first page loads", () => {
+    render(
+      <ChatSidebar
+        chats={[]}
+        activeChatId={null}
+        isOpen
+        isBusy={false}
+        isLoadingChats
+        isCollapsed={false}
+        onClose={vi.fn()}
+        onNewChat={vi.fn()}
+        onSelectChat={vi.fn()}
+        onDeleteChat={vi.fn()}
+        onRenameChat={vi.fn()}
+        onToggleFavoriteChat={vi.fn()}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status", { name: "Загрузка чатов" })).toBeDefined();
+    expect(screen.queryByText("Здесь появятся ваши диалоги")).toBeNull();
+  });
+
+  it("requests the next page only after the user asks for it", () => {
+    const onLoadMoreChats = vi.fn();
+    render(
+      <ChatSidebar
+        chats={chats}
+        activeChatId="chat-1"
+        isOpen
+        isBusy={false}
+        hasMoreChats
+        isCollapsed={false}
+        onClose={vi.fn()}
+        onNewChat={vi.fn()}
+        onSelectChat={vi.fn()}
+        onDeleteChat={vi.fn()}
+        onRenameChat={vi.fn()}
+        onToggleFavoriteChat={vi.fn()}
+        onLoadMoreChats={onLoadMoreChats}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+
+    expect(onLoadMoreChats).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Показать ещё" }));
+    expect(onLoadMoreChats).toHaveBeenCalledOnce();
   });
 
   it("shows the chat title tooltip only in collapsed mode", () => {

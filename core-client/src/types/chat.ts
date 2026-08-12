@@ -33,6 +33,7 @@ export type ChatMessage = {
   id: string;
   role: ChatRole;
   content: string;
+  createdAt?: number;
   attachments?: ChatAttachment[];
   status?: "streaming" | "error";
   modelId?: string;
@@ -51,6 +52,8 @@ export type ChatThread = {
   title: string;
   modelId: string;
   messages: ChatMessage[];
+  ownerUserId?: string;
+  messagesLoaded?: boolean;
   isFavorite?: boolean;
   isSynced?: boolean;
   createdAt: number;

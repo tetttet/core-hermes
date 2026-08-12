@@ -6,9 +6,13 @@ import { writeToClipboard } from "@/lib/clipboard";
 
 type CopyMessageButtonProps = {
   content: string;
+  subject?: "ответ" | "сообщение";
 };
 
-export function CopyMessageButton({ content }: CopyMessageButtonProps) {
+export function CopyMessageButton({
+  content,
+  subject = "ответ",
+}: CopyMessageButtonProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -43,7 +47,8 @@ export function CopyMessageButton({ content }: CopyMessageButtonProps) {
       type="button"
       className="message-copy-button"
       onClick={handleCopy}
-      aria-label={`${label} ответ`}
+      aria-label={`${label} ${subject}`}
+      title={`${label} ${subject}`}
     >
       {copyState === "copied" ? (
         <CheckIcon className="message-copy-icon" />

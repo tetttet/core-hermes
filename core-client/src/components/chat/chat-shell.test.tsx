@@ -34,6 +34,14 @@ describe("ChatShell header actions", () => {
 
   afterEach(cleanup);
 
+  it("shows a centered explore link in the header", () => {
+    render(<ChatShell />);
+
+    const exploreLink = screen.getByRole("link", { name: "Исследовать" });
+    expect(exploreLink.getAttribute("href")).toBe("/explore");
+    expect(exploreLink.classList.contains("chat-header-explore")).toBe(true);
+  });
+
   it("favorites, renames and deletes the active chat from the chevron menu", async () => {
     const { container } = render(<ChatShell />);
 

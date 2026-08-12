@@ -22,6 +22,7 @@ import {
   PencilIcon,
   PlusIcon,
   SettingsIcon,
+  SparklesIcon,
   StarIcon,
   TrashIcon,
   UserIcon,
@@ -369,11 +370,41 @@ function ChatItem({
 /*  Main sidebar                                                       */
 /* ------------------------------------------------------------------ */
 
+function ChatListSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
+  return (
+    <div
+      className="sidebar-chat-skeleton-list"
+      role="status"
+      aria-label="Загрузка чатов"
+    >
+      {Array.from({ length: 6 }, (_, index) => (
+        <div
+          key={index}
+          className={`sidebar-chat-skeleton ${isCollapsed ? "sidebar-chat-skeleton-collapsed" : ""}`}
+          aria-hidden="true"
+        >
+          <span className="sidebar-chat-skeleton-icon" />
+          {!isCollapsed ? (
+            <span
+              className="sidebar-chat-skeleton-title"
+              style={{ width: `${58 + (index % 3) * 12}%` }}
+            />
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type ChatSidebarProps = {
   chats: ChatThread[];
   activeChatId: string | null;
   isOpen: boolean;
   isBusy: boolean;
+  isLoadingChats?: boolean;
+  isLoadingMoreChats?: boolean;
+  hasMoreChats?: boolean;
+  chatListError?: string;
   isCollapsed: boolean;
   onClose: () => void;
   onNewChat: () => void;
@@ -381,6 +412,8 @@ type ChatSidebarProps = {
   onDeleteChat: (chatId: string) => void;
   onRenameChat: (chatId: string, newTitle: string) => void;
   onToggleFavoriteChat: (chatId: string) => void;
+  onLoadMoreChats?: () => void;
+  onRetryChats?: () => void;
   onToggleCollapse: () => void;
 };
 
@@ -389,6 +422,10 @@ export function ChatSidebar({
   activeChatId,
   isOpen,
   isBusy,
+  isLoadingChats = false,
+  isLoadingMoreChats = false,
+  hasMoreChats = false,
+  chatListError = "",
   isCollapsed,
   onClose,
   onNewChat,
@@ -396,6 +433,8 @@ export function ChatSidebar({
   onDeleteChat,
   onRenameChat,
   onToggleFavoriteChat,
+  onLoadMoreChats,
+  onRetryChats,
   onToggleCollapse,
 }: ChatSidebarProps) {
   const auth = useSyncExternalStore(
@@ -562,10 +601,22 @@ export function ChatSidebar({
           </button>
         </Tooltip>
 
+        <Tooltip content="Генерация" disabled={!isCollapsed} className="mt-0.5 w-full">
+          <Link
+            href="/explore"
+            onClick={onClose}
+            className={`sidebar-new-chat sidebar-generation ${isCollapsed ? "sidebar-new-chat-collapsed" : ""}`}
+          >
+            <SparklesIcon className="size-[18px] shrink-0" />
+            <span className="sidebar-button-text">Генерация</span>
+          </Link>
+        </Tooltip>
+
         {/* Chat list */}
         <nav
           className={`sidebar-chat-list mt-4 min-h-0 flex-1 overflow-y-auto ${isCollapsed ? "sidebar-nav-collapsed" : ""}`}
           aria-label="Чаты"
+          aria-busy={isLoadingChats || isLoadingMoreChats}
         >
           {favoriteChats.length > 0 ? (
             <div className="sidebar-label sidebar-chat-section-label px-2">
@@ -597,7 +648,22 @@ export function ChatSidebar({
           <div className="sidebar-label sidebar-chat-section-label px-2">
             Недавние
           </div>
-          {recentChats.length === 0 && favoriteChats.length === 0 ? (
+          {isLoadingChats && recentChats.length === 0 && favoriteChats.length === 0 ? (
+            <ChatListSkeleton isCollapsed={isCollapsed} />
+          ) : chatListError && recentChats.length === 0 && favoriteChats.length === 0 ? (
+            <div className="sidebar-chat-load-error px-2 py-3" role="alert">
+              <p className="sidebar-muted text-sm leading-5">{chatListError}</p>
+              {onRetryChats ? (
+                <button
+                  type="button"
+                  className="sidebar-load-more"
+                  onClick={onRetryChats}
+                >
+                  Повторить
+                </button>
+              ) : null}
+            </div>
+          ) : recentChats.length === 0 && favoriteChats.length === 0 ? (
             <p className="sidebar-muted px-2 py-3 text-sm leading-5">
               Здесь появятся ваши диалоги
             </p>
@@ -624,6 +690,17 @@ export function ChatSidebar({
               </div>
             ))
           )}
+
+          {hasMoreChats && onLoadMoreChats && !isCollapsed ? (
+            <button
+              type="button"
+              className="sidebar-load-more"
+              disabled={isLoadingMoreChats}
+              onClick={onLoadMoreChats}
+            >
+              {isLoadingMoreChats ? "Загружаем…" : "Показать ещё"}
+            </button>
+          ) : null}
         </nav>
 
         {/* Footer */}
@@ -676,43 +753,70 @@ export function ChatSidebar({
           </div>
 
           <Tooltip
-            content="Меню пользователя"
+            content={auth.status === "loading" ? "Загрузка профиля" : "Меню пользователя"}
             disabled={!isCollapsed || userMenuOpen}
             className="w-full"
           >
             <button
               type="button"
               className={`sidebar-profile-link ${isCollapsed ? "sidebar-profile-collapsed" : ""}`}
-              aria-label={userMenuOpen ? "Закрыть меню пользователя" : "Открыть меню пользователя"}
+              aria-label={
+                auth.status === "loading"
+                  ? "Загрузка профиля"
+                  : userMenuOpen
+                    ? "Закрыть меню пользователя"
+                    : "Открыть меню пользователя"
+              }
+              aria-busy={auth.status === "loading"}
               aria-haspopup="menu"
               aria-expanded={userMenuOpen}
               aria-controls={userMenuId}
+              disabled={auth.status === "loading"}
               onClick={() => setUserMenuOpen((open) => !open)}
             >
-              <span className="sidebar-profile-avatar" data-authenticated={auth.status === "authenticated"}>
-                {auth.status === "authenticated" ? (
-                  <span aria-hidden="true">
-                    {auth.user.firstName.slice(0, 1)}{auth.user.lastName.slice(0, 1)}
+              {auth.status === "loading" ? (
+                <>
+                  <span
+                    className="sidebar-profile-avatar sidebar-profile-skeleton"
+                    aria-hidden="true"
+                  />
+                  <span
+                    className="sidebar-profile-copy sidebar-profile-skeleton-copy"
+                    aria-hidden="true"
+                  >
+                    <span className="sidebar-profile-skeleton sidebar-profile-skeleton-name" />
+                    <span className="sidebar-profile-skeleton sidebar-profile-skeleton-detail" />
                   </span>
-                ) : (
-                  <UserIcon className="size-[18px]" />
-                )}
-              </span>
-              <span className="sidebar-profile-copy">
-                <strong>
-                  {auth.status === "authenticated"
-                    ? `${auth.user.firstName} ${auth.user.lastName}`
-                    : "Гость"}
-                </strong>
-                <small>
-                  {auth.status === "authenticated"
-                    ? auth.user.email
-                    : auth.status === "loading"
-                      ? "Проверяем сессию…"
-                      : "Войти или зарегистрироваться"}
-                </small>
-              </span>
-              <ChevronDownIcon className="sidebar-profile-chevron size-4" data-open={userMenuOpen} />
+                </>
+              ) : (
+                <>
+                  <span
+                    className="sidebar-profile-avatar"
+                    data-authenticated={auth.status === "authenticated"}
+                  >
+                    {auth.status === "authenticated" ? (
+                      <span aria-hidden="true">
+                        {auth.user.firstName.slice(0, 1)}{auth.user.lastName.slice(0, 1)}
+                      </span>
+                    ) : (
+                      <UserIcon className="size-[18px]" />
+                    )}
+                  </span>
+                  <span className="sidebar-profile-copy">
+                    <strong>
+                      {auth.status === "authenticated"
+                        ? `${auth.user.firstName} ${auth.user.lastName}`
+                        : "Гость"}
+                    </strong>
+                    <small>
+                      {auth.status === "authenticated"
+                        ? auth.user.email
+                        : "Войти или зарегистрироваться"}
+                    </small>
+                  </span>
+                  <ChevronDownIcon className="sidebar-profile-chevron size-4" data-open={userMenuOpen} />
+                </>
+              )}
             </button>
           </Tooltip>
         </div>

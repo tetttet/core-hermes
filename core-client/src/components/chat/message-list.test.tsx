@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/types/chat";
 import { MessageList } from "./message-list";
 
@@ -8,6 +8,7 @@ const messages: ChatMessage[] = [
     id: "user-1",
     role: "user",
     content: "Вопрос",
+    createdAt: Date.parse("2026-08-11T08:30:00.000Z"),
   },
   {
     id: "assistant-1",
@@ -18,6 +19,48 @@ const messages: ChatMessage[] = [
 ];
 
 describe("MessageList", () => {
+  afterEach(cleanup);
+
+  it("shows a history skeleton instead of an empty-chat prompt", () => {
+    const { container } = render(
+      <MessageList
+        messages={[]}
+        isLoading={false}
+        isHistoryLoading
+        progressMessage=""
+      />,
+    );
+
+    expect(
+      screen.getByRole("status", { name: "Загрузка истории чата" }),
+    ).toBeDefined();
+    expect(
+      container
+        .querySelector(".empty-chat-title")
+        ?.closest("[aria-hidden]")
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true");
+  });
+
+  it("loads older messages only on demand", () => {
+    const onLoadOlder = vi.fn();
+    render(
+      <MessageList
+        messages={messages}
+        isLoading={false}
+        hasOlderMessages
+        onLoadOlder={onLoadOlder}
+        progressMessage=""
+      />,
+    );
+
+    expect(onLoadOlder).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Показать ранние сообщения" }),
+    );
+    expect(onLoadOlder).toHaveBeenCalledOnce();
+  });
+
   it("shows the Yahya logo while the assistant is thinking", () => {
     const { container } = render(
       <MessageList
@@ -38,7 +81,7 @@ describe("MessageList", () => {
     expect(container.querySelector('.typing-logo[src="/yahya.svg"]')).not.toBeNull();
   });
 
-  it("hides model identity and shows a compact copy action only for bot messages", async () => {
+  it("shows compact copy actions and the user message timestamp", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -53,7 +96,13 @@ describe("MessageList", () => {
     expect(screen.queryByText(/Gemma/)).toBeNull();
 
     const copyButton = screen.getByRole("button", { name: "Копировать ответ" });
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    const userCopyButton = screen.getByRole("button", {
+      name: "Копировать сообщение",
+    });
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(document.querySelector("time")?.getAttribute("datetime")).toBe(
+      "2026-08-11T08:30:00.000Z",
+    );
     fireEvent.click(copyButton);
 
     await waitFor(() =>
@@ -61,6 +110,12 @@ describe("MessageList", () => {
     );
     expect(
       screen.getByRole("button", { name: "Скопировано ответ" }),
+    ).toBeDefined();
+
+    fireEvent.click(userCopyButton);
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith("Вопрос"));
+    expect(
+      screen.getByRole("button", { name: "Скопировано сообщение" }),
     ).toBeDefined();
   });
 });

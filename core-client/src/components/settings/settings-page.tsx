@@ -12,8 +12,10 @@ import {
 } from "react";
 import {
   CheckIcon,
+  ChatBubbleIcon,
   ChevronLeftIcon,
   DatabaseIcon,
+  ImageIcon,
   InfoIcon,
   ModelsIcon,
   MonitorIcon,
@@ -28,6 +30,13 @@ import {
   saveChatStore,
   subscribeToChat,
 } from "@/lib/chat-storage";
+import { deleteAllRemoteChats } from "@/lib/core-api";
+import {
+  clearGeneratedImages,
+  getGeneratedImagesServerSnapshot,
+  getGeneratedImagesSnapshot,
+  subscribeToGeneratedImages,
+} from "@/lib/generated-image-storage";
 import {
   getAuthServerSnapshot,
   getAuthSnapshot,
@@ -212,7 +221,11 @@ function formatStorageSize(bytes: number) {
 }
 
 function DataSettings() {
-  const [confirming, setConfirming] = useState<"all" | string | null>(null);
+  const [confirming, setConfirming] = useState<
+    "attachments-all" | "chats-all" | "images-all" | string | null
+  >(null);
+  const [deleting, setDeleting] = useState<"chats" | "images" | null>(null);
+  const [managementStatus, setManagementStatus] = useState("");
   const [status, setStatus] = useState("");
   const auth = useSyncExternalStore(
     subscribeToAuth,
@@ -223,6 +236,11 @@ function DataSettings() {
     subscribeToChat,
     getChatSnapshot,
     getChatServerSnapshot,
+  );
+  const generatedImages = useSyncExternalStore(
+    subscribeToGeneratedImages,
+    getGeneratedImagesSnapshot,
+    getGeneratedImagesServerSnapshot,
   );
   const attachmentItems = useMemo(
     () =>
@@ -246,6 +264,10 @@ function DataSettings() {
     () => attachmentItems.reduce((sum, item) => sum + item.size, 0),
     [attachmentItems],
   );
+  const generatedImagesSize = useMemo(
+    () => generatedImages.length > 0 ? measureJsonBytes(generatedImages) : 0,
+    [generatedImages],
+  );
   const chatCount = useMemo(
     () => new Set(attachmentItems.map((item) => item.chatId)).size,
     [attachmentItems],
@@ -254,6 +276,44 @@ function DataSettings() {
   useEffect(() => {
     void initializeAuth();
   }, []);
+
+  async function deleteAllChats() {
+    setDeleting("chats");
+    setManagementStatus("");
+
+    try {
+      if (auth.status === "authenticated") {
+        await deleteAllRemoteChats();
+      }
+      const didSave = saveChatStore({
+        ...store,
+        activeChatId: null,
+        chats: [],
+      });
+      if (!didSave) throw new Error("Не удалось обновить локальную историю");
+      setConfirming(null);
+      setManagementStatus("Все чаты удалены");
+    } catch (error) {
+      setManagementStatus(
+        error instanceof Error ? error.message : "Не удалось удалить все чаты",
+      );
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  function deleteAllGeneratedImages() {
+    setDeleting("images");
+    setManagementStatus("");
+    const didClear = clearGeneratedImages();
+    setConfirming(null);
+    setDeleting(null);
+    setManagementStatus(
+      didClear
+        ? "Все созданные изображения удалены с устройства"
+        : "Не удалось удалить изображения",
+    );
+  }
 
   function deleteAllAttachments() {
     const didSave = saveChatStore({
@@ -313,20 +373,135 @@ function DataSettings() {
         title="Данные"
         description={
           auth.status === "authenticated"
-            ? "Чаты синхронизируются между устройствами. Здесь хранятся только файлы."
-            : "Войдите, чтобы синхронизировать чаты. Файлы остаются в этом браузере."
+            ? "Управляйте синхронизированными чатами и локальными изображениями с одного экрана."
+            : "Чаты, вложения и генерации хранятся в этом браузере."
         }
       />
+
+      <section className="settings-section settings-data-management">
+        <div className="settings-storage-heading">
+          <div>
+            <h2>История и генерации</h2>
+            <p>Удаляйте каждый тип данных отдельно.</p>
+          </div>
+        </div>
+
+        <div className="settings-data-list">
+          <article className="settings-data-row">
+            <div className="settings-data-row-main">
+              <span className="settings-data-icon"><ChatBubbleIcon className="size-[18px]" /></span>
+              <div>
+                <strong>Все чаты</strong>
+                <p>
+                  {auth.status === "authenticated"
+                    ? `${store.chats.length} загружено · удаление со всех устройств`
+                    : `${store.chats.length} на этом устройстве`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="settings-button settings-button-danger-outline"
+              disabled={
+                deleting !== null ||
+                auth.status === "loading" ||
+                (auth.status !== "authenticated" && store.chats.length === 0)
+              }
+              onClick={() => {
+                setManagementStatus("");
+                setConfirming("chats-all");
+              }}
+            >
+              <TrashIcon className="size-4" />
+              Удалить все чаты
+            </button>
+          </article>
+          {confirming === "chats-all" ? (
+            <div className="delete-confirm" role="alert">
+              <div>
+                <strong>Безвозвратно удалить все чаты?</strong>
+                <p>
+                  {auth.status === "authenticated"
+                    ? "История исчезнет на всех устройствах."
+                    : "История исчезнет из этого браузера."}
+                </p>
+              </div>
+              <div className="delete-confirm-actions">
+                <button type="button" className="settings-button" onClick={() => setConfirming(null)}>
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  className="settings-button settings-button-danger"
+                  disabled={deleting !== null}
+                  onClick={() => void deleteAllChats()}
+                >
+                  {deleting === "chats" ? "Удаляем…" : "Удалить чаты"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <article className="settings-data-row">
+            <div className="settings-data-row-main">
+              <span className="settings-data-icon"><ImageIcon className="size-[18px]" /></span>
+              <div>
+                <strong>Созданные изображения</strong>
+                <p>{generatedImages.length} · {formatStorageSize(generatedImagesSize)} · только localStorage</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="settings-button settings-button-danger-outline"
+              disabled={deleting !== null || generatedImages.length === 0}
+              onClick={() => {
+                setManagementStatus("");
+                setConfirming("images-all");
+              }}
+            >
+              <TrashIcon className="size-4" />
+              Удалить изображения
+            </button>
+          </article>
+          {confirming === "images-all" ? (
+            <div className="delete-confirm" role="alert">
+              <div>
+                <strong>Удалить все созданные изображения?</strong>
+                <p>Скачайте нужные файлы заранее — восстановить их не получится.</p>
+              </div>
+              <div className="delete-confirm-actions">
+                <button type="button" className="settings-button" onClick={() => setConfirming(null)}>
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  className="settings-button settings-button-danger"
+                  disabled={deleting !== null}
+                  onClick={deleteAllGeneratedImages}
+                >
+                  Удалить изображения
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+      <p className="settings-status settings-management-status" aria-live="polite">
+        {managementStatus}
+      </p>
+
       <section className="settings-section settings-storage-summary">
         <div className="settings-storage-total">
-          <span>Занято файлами</span>
-          <strong>{formatStorageSize(totalSize)}</strong>
+          <span>Локальные данные</span>
+          <strong>{formatStorageSize(totalSize + generatedImagesSize)}</strong>
         </div>
         <div className="settings-storage-counts">
+          <span>Чатов: {store.chats.length}</span>
+          <span>Генераций: {generatedImages.length}</span>
           <span>Файлов: {attachmentItems.length}</span>
           <span>В чатах: {chatCount}</span>
         </div>
-        <p>Удаление файла не удаляет текст чата.</p>
+        <p>Вложения и генерации остаются только в этом браузере.</p>
       </section>
 
       <section className="settings-section settings-storage-section">
@@ -341,7 +516,7 @@ function DataSettings() {
             disabled={attachmentItems.length === 0}
             onClick={() => {
               setStatus("");
-              setConfirming("all");
+              setConfirming("attachments-all");
             }}
           >
             <TrashIcon className="size-4" />
@@ -349,7 +524,7 @@ function DataSettings() {
           </button>
         </div>
 
-        {confirming === "all" ? (
+        {confirming === "attachments-all" ? (
           <div className="delete-confirm" role="alert">
             <div>
               <strong>Удалить все файлы с устройства?</strong>

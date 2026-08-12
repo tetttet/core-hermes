@@ -1,6 +1,90 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_MODEL_ID } from "@/config/models";
 import type { ChatMessage, RemoteChatMessage } from "@/types/chat";
-import { mergeRemoteMessages } from "./chat-storage";
+import {
+  clearAccountChats,
+  clearChatStore,
+  getChatSnapshot,
+  mergeRemoteMessages,
+  saveChatStore,
+} from "./chat-storage";
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
+describe("clearChatStore", () => {
+  it("removes every local chat and notifies mounted subscribers", () => {
+    const onChange = vi.fn();
+    window.addEventListener("hermes-chat-change", onChange);
+    saveChatStore({
+      activeChatId: "chat-1",
+      draftModelId: DEFAULT_MODEL_ID,
+      chats: [
+        {
+          id: "chat-1",
+          title: "Приватный чат",
+          modelId: DEFAULT_MODEL_ID,
+          messages: [],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    });
+    onChange.mockClear();
+
+    expect(clearChatStore()).toBe(true);
+    expect(window.localStorage.getItem("hermes-chat")).toBeNull();
+    expect(getChatSnapshot().chats).toEqual([]);
+    expect(getChatSnapshot().activeChatId).toBeNull();
+    expect(onChange).toHaveBeenCalledOnce();
+
+    window.removeEventListener("hermes-chat-change", onChange);
+  });
+});
+
+describe("clearAccountChats", () => {
+  it("removes account chats and keeps guest chats", () => {
+    saveChatStore({
+      activeChatId: "account-chat",
+      draftModelId: DEFAULT_MODEL_ID,
+      chats: [
+        {
+          id: "account-chat",
+          title: "Чат пользователя",
+          modelId: DEFAULT_MODEL_ID,
+          messages: [],
+          ownerUserId: "user-1",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          id: "legacy-account-chat",
+          title: "Синхронизированный чат без владельца",
+          modelId: DEFAULT_MODEL_ID,
+          messages: [],
+          isSynced: true,
+          createdAt: 2,
+          updatedAt: 2,
+        },
+        {
+          id: "guest-chat",
+          title: "Гостевой чат",
+          modelId: DEFAULT_MODEL_ID,
+          messages: [],
+          createdAt: 3,
+          updatedAt: 3,
+        },
+      ],
+    });
+
+    expect(clearAccountChats()).toBe(true);
+    expect(getChatSnapshot().chats.map((chat) => chat.id)).toEqual([
+      "guest-chat",
+    ]);
+    expect(getChatSnapshot().activeChatId).toBeNull();
+  });
+});
 
 describe("mergeRemoteMessages", () => {
   const remote: RemoteChatMessage = {
@@ -25,6 +109,7 @@ describe("mergeRemoteMessages", () => {
     const [message] = mergeRemoteMessages([remote]);
     expect(message?.content).toContain("Этот файл был обработан на другом устройстве");
     expect(message?.attachments).toBeUndefined();
+    expect(message?.createdAt).toBe(Date.parse(remote.createdAt));
   });
 
   it("restores a matching local attachment without a placeholder", () => {

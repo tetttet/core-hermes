@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -13,7 +14,8 @@ import { findModel, getModel } from "@/config/models";
 import { ChatStreamError, consumeChatResponse, prepareApiMessages } from "@/lib/chat-stream";
 import {
   deleteRemoteChat,
-  loadRemoteHistory,
+  loadRemoteChats,
+  loadRemoteMessages,
   streamChat,
   updateRemoteChat,
 } from "@/lib/core-api";
@@ -26,9 +28,11 @@ import {
 import {
   getChatServerSnapshot,
   getChatSnapshot,
+  isAccountChat,
   saveChatStore,
   subscribeToChat,
 } from "@/lib/chat-storage";
+import { createChatTitle } from "@/lib/chat-title";
 import type { ChatAttachment, ChatMessage, ChatThread } from "@/types/chat";
 import { ChatComposer } from "./chat-composer";
 import {
@@ -47,12 +51,6 @@ type PendingRequest = {
   messages: ChatMessage[];
   assistantId: string;
 };
-
-function makeChatTitle(content: string, attachments: ChatAttachment[]) {
-  const cleanContent = content.replace(/\s+/g, " ").trim();
-  if (cleanContent) return cleanContent.slice(0, 42);
-  return attachments[0]?.name.slice(0, 42) || "Новый чат";
-}
 
 function updateAssistantMessage(
   chatId: string,
@@ -110,6 +108,21 @@ export function ChatShell() {
     getChatServerSnapshot,
   );
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
+  const [isChatListLoading, setIsChatListLoading] = useState(true);
+  const [isLoadingMoreChats, setIsLoadingMoreChats] = useState(false);
+  const [nextChatsCursor, setNextChatsCursor] = useState<string | null>(null);
+  const [chatListError, setChatListError] = useState("");
+  const [chatListRetryNonce, setChatListRetryNonce] = useState(0);
+  const [loadingOlderChatId, setLoadingOlderChatId] = useState<string | null>(
+    null,
+  );
+  const [historyLoadFailedChatId, setHistoryLoadFailedChatId] = useState<
+    string | null
+  >(null);
+  const [historyRetryNonce, setHistoryRetryNonce] = useState(0);
+  const [messageCursors, setMessageCursors] = useState<
+    Record<string, string | null>
+  >({});
   const [error, setError] = useState("");
   const [isStorageError, setIsStorageError] = useState(false);
   const [progressMessage, setProgressMessage] = useState("");
@@ -131,53 +144,165 @@ export function ChatShell() {
   const retryRequestRef = useRef<PendingRequest | null>(null);
   const userStoppedRef = useRef(false);
   const syncedUserRef = useRef<string | null>(null);
+  const hydratingChatsRef = useRef(new Set<string>());
+  const pendingPrependScrollRef = useRef<{
+    chatId: string;
+    scrollHeight: number;
+    scrollTop: number;
+  } | null>(null);
+  const skipNextAutoScrollRef = useRef(false);
   const headerMenuId = useId();
-  const activeChat = store.chats.find((chat) => chat.id === store.activeChatId);
+  const visibleChats =
+    auth.status === "authenticated"
+      ? store.chats
+      : store.chats.filter((chat) => !isAccountChat(chat));
+  const activeChat = visibleChats.find((chat) => chat.id === store.activeChatId);
   const messages = activeChat?.messages ?? EMPTY_MESSAGES;
   const modelId = activeChat?.modelId ?? store.draftModelId;
   const isLoading = loadingChatId !== null;
-  const isEmptyChat = messages.length === 0;
+  const needsRemoteHistory = Boolean(
+    activeChat?.isSynced && activeChat.messagesLoaded === false,
+  );
+  const isChatHistoryLoading =
+    needsRemoteHistory && historyLoadFailedChatId !== activeChat?.id;
+  const isEmptyChat = messages.length === 0 && !isChatHistoryLoading;
 
   useEffect(() => {
     void initializeAuth();
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (auth.status !== "authenticated") {
       syncedUserRef.current = null;
-      return;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setIsChatListLoading(false);
+        setIsLoadingMoreChats(false);
+        setNextChatsCursor(null);
+        setChatListError("");
+        setMessageCursors({});
+      });
+      return () => {
+        cancelled = true;
+      };
     }
     if (syncedUserRef.current === auth.user.id) return;
-    syncedUserRef.current = auth.user.id;
+    const userId = auth.user.id;
+    syncedUserRef.current = userId;
 
-    let cancelled = false;
     const localChats = getChatSnapshot().chats;
-    void loadRemoteHistory(localChats)
-      .then((chats) => {
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setIsChatListLoading(true);
+      setChatListError("");
+    });
+    void loadRemoteChats(localChats)
+      .then((page) => {
         if (cancelled) return;
         const latestStore = getChatSnapshot();
-        const loadedIds = new Set(chats.map((chat) => chat.id));
+        const accountChats = page.items.map((chat) => ({
+          ...chat,
+          ownerUserId: userId,
+        }));
+        const loadedIds = new Set(accountChats.map((chat) => chat.id));
         const newLocalChats = latestStore.chats.filter(
-          (chat) => !chat.isSynced && !loadedIds.has(chat.id),
+          (chat) =>
+            !chat.isSynced &&
+            (!chat.ownerUserId || chat.ownerUserId === userId) &&
+            !loadedIds.has(chat.id),
         );
-        const mergedChats = [...chats, ...newLocalChats];
+        const mergedChats = [...accountChats, ...newLocalChats];
         const activeChatId =
           latestStore.activeChatId &&
           mergedChats.some((chat) => chat.id === latestStore.activeChatId)
             ? latestStore.activeChatId
-            : (mergedChats[0]?.id ?? null);
+            : null;
         saveChatStore({ ...latestStore, chats: mergedChats, activeChatId });
+        setNextChatsCursor(page.nextCursor);
       })
       .catch(() => {
-        if (!cancelled) syncedUserRef.current = null;
+        if (!cancelled) {
+          syncedUserRef.current = null;
+          setChatListError("Не удалось загрузить чаты");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsChatListLoading(false);
       });
 
     return () => {
       cancelled = true;
+      if (syncedUserRef.current === userId) {
+        syncedUserRef.current = null;
+      }
     };
-  }, [auth]);
+  }, [auth, chatListRetryNonce]);
 
   useEffect(() => {
+    if (
+      auth.status !== "authenticated" ||
+      !activeChat?.isSynced ||
+      activeChat.messagesLoaded !== false ||
+      historyLoadFailedChatId === activeChat.id ||
+      hydratingChatsRef.current.has(activeChat.id)
+    ) {
+      return;
+    }
+
+    const chatId = activeChat.id;
+    hydratingChatsRef.current.add(chatId);
+    void loadRemoteMessages(chatId, activeChat.messages)
+      .then((page) => {
+        const latestStore = getChatSnapshot();
+        saveChatStore({
+          ...latestStore,
+          chats: latestStore.chats.map((chat) =>
+            chat.id === chatId
+              ? { ...chat, messages: page.items, messagesLoaded: true }
+              : chat,
+          ),
+        });
+        setMessageCursors((current) => ({
+          ...current,
+          [chatId]: page.nextCursor,
+        }));
+      })
+      .catch(() => {
+        setHistoryLoadFailedChatId(chatId);
+        if (getChatSnapshot().activeChatId === chatId) {
+          setError("Не удалось загрузить историю чата.");
+        }
+      })
+      .finally(() => {
+        hydratingChatsRef.current.delete(chatId);
+      });
+  }, [
+    activeChat?.id,
+    activeChat?.isSynced,
+    activeChat?.messages,
+    activeChat?.messagesLoaded,
+    auth.status,
+    historyLoadFailedChatId,
+    historyRetryNonce,
+  ]);
+
+  useLayoutEffect(() => {
+    const pending = pendingPrependScrollRef.current;
+    const scroller = scrollRef.current;
+    if (!pending || !scroller || pending.chatId !== activeChat?.id) return;
+
+    scroller.scrollTop =
+      pending.scrollTop + scroller.scrollHeight - pending.scrollHeight;
+    pendingPrependScrollRef.current = null;
+  }, [activeChat?.id, messages]);
+
+  useEffect(() => {
+    if (skipNextAutoScrollRef.current) {
+      skipNextAutoScrollRef.current = false;
+      return;
+    }
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: isLoading ? "auto" : "smooth",
@@ -246,7 +371,112 @@ export function ChatShell() {
     setSidebarOpen(false);
     setHeaderMenuOpen(false);
     setHeaderRenaming(false);
-    saveChatStore({ ...store, activeChatId: chatId });
+    if (historyLoadFailedChatId === chatId) {
+      setHistoryLoadFailedChatId(null);
+      setHistoryRetryNonce((value) => value + 1);
+    }
+    const latestStore = getChatSnapshot();
+    saveChatStore({ ...latestStore, activeChatId: chatId });
+  }
+
+  async function loadMoreChats() {
+    if (
+      auth.status !== "authenticated" ||
+      !nextChatsCursor ||
+      isLoadingMoreChats
+    ) {
+      return;
+    }
+
+    const cursor = nextChatsCursor;
+    setIsLoadingMoreChats(true);
+    setChatListError("");
+    try {
+      const latestStore = getChatSnapshot();
+      const page = await loadRemoteChats(latestStore.chats, cursor);
+      const afterRequestStore = getChatSnapshot();
+      const existingIds = new Set(afterRequestStore.chats.map((chat) => chat.id));
+      saveChatStore({
+        ...afterRequestStore,
+        chats: [
+          ...afterRequestStore.chats,
+          ...page.items
+            .filter((chat) => !existingIds.has(chat.id))
+            .map((chat) => ({ ...chat, ownerUserId: auth.user.id })),
+        ],
+      });
+      setNextChatsCursor(page.nextCursor);
+    } catch {
+      setChatListError("Не удалось загрузить остальные чаты");
+    } finally {
+      setIsLoadingMoreChats(false);
+    }
+  }
+
+  function retryChatListLoad() {
+    syncedUserRef.current = null;
+    setChatListError("");
+    setIsChatListLoading(true);
+    setChatListRetryNonce((value) => value + 1);
+  }
+
+  async function loadOlderMessages() {
+    if (!activeChat || loadingOlderChatId || !messageCursors[activeChat.id]) {
+      return;
+    }
+
+    const chatId = activeChat.id;
+    const cursor = messageCursors[chatId]!;
+    const scroller = scrollRef.current;
+    setLoadingOlderChatId(chatId);
+    setError("");
+    try {
+      const page = await loadRemoteMessages(chatId, activeChat.messages, cursor);
+      const latestStore = getChatSnapshot();
+      const latestChat = latestStore.chats.find((chat) => chat.id === chatId);
+      if (!latestChat) return;
+      const existingIds = new Set(
+        latestChat.messages.map((message) => message.id),
+      );
+      if (scroller && latestStore.activeChatId === chatId) {
+        pendingPrependScrollRef.current = {
+          chatId,
+          scrollHeight: scroller.scrollHeight,
+          scrollTop: scroller.scrollTop,
+        };
+        skipNextAutoScrollRef.current = true;
+      }
+      saveChatStore({
+        ...latestStore,
+        chats: latestStore.chats.map((chat) =>
+          chat.id === chatId
+            ? {
+                ...chat,
+                messages: [
+                  ...page.items.filter((message) => !existingIds.has(message.id)),
+                  ...chat.messages,
+                ],
+                messagesLoaded: true,
+              }
+            : chat,
+        ),
+      });
+      setMessageCursors((current) => ({
+        ...current,
+        [chatId]: page.nextCursor,
+      }));
+    } catch {
+      setError("Не удалось загрузить ранние сообщения.");
+    } finally {
+      setLoadingOlderChatId(null);
+    }
+  }
+
+  function retryHistoryLoad() {
+    if (!activeChat || historyLoadFailedChatId !== activeChat.id) return;
+    setError("");
+    setHistoryLoadFailedChatId(null);
+    setHistoryRetryNonce((value) => value + 1);
   }
 
   function deleteChat(chatId: string) {
@@ -435,7 +665,14 @@ export function ChatShell() {
         ...latestStore,
         chats: latestStore.chats.map((chat) =>
           chat.id === pending.chatId
-            ? { ...chat, isSynced: auth.status === "authenticated", updatedAt: nextResponseOrder }
+            ? {
+                ...chat,
+                isSynced: auth.status === "authenticated",
+                ...(auth.status === "authenticated"
+                  ? { ownerUserId: auth.user.id }
+                  : {}),
+                updatedAt: nextResponseOrder,
+              }
             : chat,
         ),
       });
@@ -509,10 +746,12 @@ export function ChatShell() {
   }
 
   function sendMessage(content: string, attachments: ChatAttachment[]) {
+    const sentAt = Date.now();
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content,
+      createdAt: sentAt,
       attachments: attachments.length ? attachments : undefined,
     };
     const assistantMessage: ChatMessage = {
@@ -521,18 +760,29 @@ export function ChatShell() {
       content: "",
       status: "streaming",
       modelId,
+      createdAt: sentAt + 1,
     };
     const chatId = activeChat?.id ?? crypto.randomUUID();
     const nextOrder = Math.max(0, ...store.chats.map((chat) => chat.updatedAt)) + 1;
     const requestMessages = [...messages, userMessage];
     const nextMessages = [...requestMessages, assistantMessage];
     const nextChat: ChatThread = activeChat
-      ? { ...activeChat, messages: nextMessages, updatedAt: nextOrder }
+      ? {
+          ...activeChat,
+          messages: nextMessages,
+          ...(auth.status === "authenticated"
+            ? { ownerUserId: auth.user.id }
+            : {}),
+          updatedAt: nextOrder,
+        }
       : {
           id: chatId,
-          title: makeChatTitle(content, attachments),
+          title: createChatTitle(content, attachments),
           modelId,
           messages: nextMessages,
+          ...(auth.status === "authenticated"
+            ? { ownerUserId: auth.user.id }
+            : {}),
           createdAt: nextOrder,
           updatedAt: nextOrder,
         };
@@ -562,90 +812,104 @@ export function ChatShell() {
   return (
     <>
       <main className="app-shell flex h-dvh min-h-130 overflow-hidden">
-      <ChatSidebar
-        chats={store.chats}
-        activeChatId={store.activeChatId}
-        isOpen={sidebarOpen}
-        isBusy={isLoading}
-        isCollapsed={sidebarCollapsed}
-        onClose={() => setSidebarOpen(false)}
-        onNewChat={startNewChat}
-        onSelectChat={selectChat}
-        onDeleteChat={deleteChat}
-        onRenameChat={renameChat}
-        onToggleFavoriteChat={toggleFavoriteChat}
-        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
-      />
+        <ChatSidebar
+          chats={visibleChats}
+          activeChatId={activeChat?.id ?? null}
+          isOpen={sidebarOpen}
+          isBusy={isLoading}
+          isLoadingChats={auth.status === "loading" || isChatListLoading}
+          isLoadingMoreChats={isLoadingMoreChats}
+          hasMoreChats={Boolean(nextChatsCursor)}
+          chatListError={chatListError}
+          isCollapsed={sidebarCollapsed}
+          onClose={() => setSidebarOpen(false)}
+          onNewChat={startNewChat}
+          onSelectChat={selectChat}
+          onDeleteChat={deleteChat}
+          onRenameChat={renameChat}
+          onToggleFavoriteChat={toggleFavoriteChat}
+          onLoadMoreChats={() => void loadMoreChats()}
+          onRetryChats={retryChatListLoad}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        />
 
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="chat-header flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-5 lg:border-0">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Открыть список чатов"
-            className="app-icon-button flex size-9 items-center justify-center rounded-lg lg:hidden"
-          >
-            <MenuIcon className="size-5" />
-          </button>
-          <div ref={headerActionsRef} className="chat-header-chat">
-            <div className="min-w-0">
-              {headerRenaming && activeChat ? (
-                <input
-                  ref={headerRenameRef}
-                  className="chat-header-rename"
-                  aria-label="Новое название чата"
-                  value={headerRenameValue}
-                  onChange={(event) => setHeaderRenameValue(event.target.value)}
-                  onBlur={submitHeaderRename}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") submitHeaderRename();
-                    if (event.key === "Escape") {
-                      setHeaderRenameValue(activeChat.title);
-                      setHeaderRenaming(false);
-                    }
+        <section className="flex min-w-0 flex-1 flex-col">
+        <header className="chat-header h-14 shrink-0 border-b px-3 sm:px-5 lg:border-0">
+          <div className="chat-header-start">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Открыть список чатов"
+              className="app-icon-button flex size-9 items-center justify-center rounded-lg lg:hidden"
+            >
+              <MenuIcon className="size-5" />
+            </button>
+            <div ref={headerActionsRef} className="chat-header-chat">
+              <div className="min-w-0">
+                {headerRenaming && activeChat ? (
+                  <input
+                    ref={headerRenameRef}
+                    className="chat-header-rename"
+                    aria-label="Новое название чата"
+                    value={headerRenameValue}
+                    onChange={(event) => setHeaderRenameValue(event.target.value)}
+                    onBlur={submitHeaderRename}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") submitHeaderRename();
+                      if (event.key === "Escape") {
+                        setHeaderRenameValue(activeChat.title);
+                        setHeaderRenaming(false);
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="chat-header-title truncate text-sm font-medium">
+                    {activeChat?.title ?? "Новый чат"}
+                  </div>
+                )}
+                {activeChat ? (
+                  <div className="chat-header-model truncate text-[11px]">
+                    {getModel(activeChat.modelId).title}
+                  </div>
+                ) : null}
+              </div>
+              {activeChat && !headerRenaming ? (
+                <button
+                  ref={headerMenuButtonRef}
+                  type="button"
+                  className="chat-header-menu-button"
+                  aria-label={`Действия с чатом «${activeChat.title}»`}
+                  aria-haspopup="menu"
+                  aria-expanded={headerMenuOpen}
+                  aria-controls={headerMenuOpen ? headerMenuId : undefined}
+                  onClick={() => setHeaderMenuOpen((value) => !value)}
+                >
+                  <ChevronDownIcon className="size-4" />
+                </button>
+              ) : null}
+              {activeChat && headerMenuOpen ? (
+                <ChatContextMenu
+                  id={headerMenuId}
+                  anchorRef={headerMenuButtonRef}
+                  menuRef={headerMenuRef}
+                  isFavorite={Boolean(activeChat.isFavorite)}
+                  onToggleFavorite={() => toggleFavoriteChat(activeChat.id)}
+                  onRename={() => {
+                    setHeaderRenameValue(activeChat.title);
+                    setHeaderRenaming(true);
                   }}
+                  onDelete={() => setHeaderDeleteChatId(activeChat.id)}
+                  onClose={() => setHeaderMenuOpen(false)}
                 />
-              ) : (
-                <div className="chat-header-title truncate text-sm font-medium">
-                  {activeChat?.title ?? "Новый чат"}
-                </div>
-              )}
-              {activeChat ? (
-                <div className="chat-header-model truncate text-[11px]">
-                  {getModel(activeChat.modelId).title}
-                </div>
               ) : null}
             </div>
-            {activeChat && !headerRenaming ? (
-              <button
-                ref={headerMenuButtonRef}
-                type="button"
-                className="chat-header-menu-button"
-                aria-label={`Действия с чатом «${activeChat.title}»`}
-                aria-haspopup="menu"
-                aria-expanded={headerMenuOpen}
-                aria-controls={headerMenuOpen ? headerMenuId : undefined}
-                onClick={() => setHeaderMenuOpen((value) => !value)}
-              >
-                <ChevronDownIcon className="size-4" />
-              </button>
-            ) : null}
-            {activeChat && headerMenuOpen ? (
-              <ChatContextMenu
-                id={headerMenuId}
-                anchorRef={headerMenuButtonRef}
-                menuRef={headerMenuRef}
-                isFavorite={Boolean(activeChat.isFavorite)}
-                onToggleFavorite={() => toggleFavoriteChat(activeChat.id)}
-                onRename={() => {
-                  setHeaderRenameValue(activeChat.title);
-                  setHeaderRenaming(true);
-                }}
-                onDelete={() => setHeaderDeleteChatId(activeChat.id)}
-                onClose={() => setHeaderMenuOpen(false)}
-              />
-            ) : null}
           </div>
+
+          <Link href="/explore" className="chat-header-explore">
+            Исследовать
+          </Link>
+
+          <div className="chat-header-balance" aria-hidden="true" />
         </header>
 
         <div
@@ -659,9 +923,16 @@ export function ChatShell() {
             <MessageList
               messages={messages}
               isLoading={loadingChatId === activeChat?.id}
+              isHistoryLoading={isChatHistoryLoading}
+              hasOlderMessages={Boolean(
+                activeChat && messageCursors[activeChat.id],
+              )}
+              isLoadingOlder={loadingOlderChatId === activeChat?.id}
+              onLoadOlder={() => void loadOlderMessages()}
               progressMessage={
                 loadingChatId === activeChat?.id ? progressMessage : ""
               }
+              user={auth.status === "authenticated" ? auth.user : undefined}
             />
           </div>
 
@@ -680,6 +951,14 @@ export function ChatShell() {
                     >
                       Освободить место
                     </Link>
+                  ) : historyLoadFailedChatId === activeChat?.id ? (
+                    <button
+                      type="button"
+                      onClick={retryHistoryLoad}
+                      className="chat-error-retry shrink-0 rounded-lg border px-2.5 py-1 text-xs font-medium"
+                    >
+                      Повторить
+                    </button>
                   ) : canRetry && !isLoading ? (
                     <button
                       type="button"
@@ -699,6 +978,7 @@ export function ChatShell() {
                 onSend={sendMessage}
                 onStop={stopRequest}
                 isLoading={isLoading}
+                disabled={needsRemoteHistory}
               />
             </div>
           </div>

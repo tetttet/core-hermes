@@ -147,6 +147,28 @@ export async function deleteRemoteChat(chatId: string) {
   }
 }
 
+export async function deleteAllRemoteChats() {
+  const chatIds: string[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await listChats(cursor, 100);
+    chatIds.push(...page.items.map((chat) => chat.id));
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+
+  const batchSize = 8;
+  for (let index = 0; index < chatIds.length; index += batchSize) {
+    await Promise.all(
+      chatIds.slice(index, index + batchSize).map((chatId) =>
+        deleteRemoteChat(chatId),
+      ),
+    );
+  }
+
+  return chatIds.length;
+}
+
 export async function listMessages(
   chatId: string,
   localMessages: ChatMessage[],
@@ -161,68 +183,39 @@ export async function listMessages(
   return { ...page, items: mergeRemoteMessages(page.items, localMessages) };
 }
 
-async function listAllChats() {
-  const items: Awaited<ReturnType<typeof listChats>>["items"] = [];
-  let cursor: string | undefined;
-
-  do {
-    const page = await listChats(cursor, 100);
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-
-  return items;
-}
-
-async function listAllMessages(chatId: string, localMessages: ChatMessage[]) {
-  let items: ChatMessage[] = [];
-  let cursor: string | undefined;
-
-  do {
-    const page = await listMessages(chatId, localMessages, cursor, 100);
-    items = [...page.items, ...items];
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-
-  return items;
-}
-
-export async function loadRemoteHistory(localChats: ChatThread[]) {
-  const remoteChats = await listAllChats();
+export async function loadRemoteChats(
+  localChats: ChatThread[],
+  cursor?: string,
+  limit = 30,
+) {
+  const page = await listChats(cursor, limit);
   const localById = new Map(localChats.map((chat) => [chat.id, chat]));
-  const hydrated = new Array<ChatThread>(remoteChats.length);
-  let nextIndex = 0;
+  const items = page.items.map((remote): ChatThread => {
+    const local = localById.get(remote.id);
+    const createdAt = Date.parse(remote.createdAt);
+    const updatedAt = Date.parse(remote.updatedAt);
 
-  async function hydrateNext() {
-    while (nextIndex < remoteChats.length) {
-      const index = nextIndex++;
-      const remote = remoteChats[index]!;
-      const local = localById.get(remote.id);
-      const createdAt = Date.parse(remote.createdAt);
-      const updatedAt = Date.parse(remote.updatedAt);
-      hydrated[index] = {
-        id: remote.id,
-        title: remote.title,
-        modelId: remote.modelId,
-        messages: await listAllMessages(remote.id, local?.messages ?? []),
-        ...(remote.isFavorite ? { isFavorite: true } : {}),
-        isSynced: true,
-        createdAt: Number.isFinite(createdAt) ? createdAt : 0,
-        updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
-      };
-    }
-  }
+    return {
+      id: remote.id,
+      title: remote.title,
+      modelId: remote.modelId,
+      messages: local?.messages ?? [],
+      messagesLoaded: false,
+      ...(remote.isFavorite ? { isFavorite: true } : {}),
+      isSynced: true,
+      createdAt: Number.isFinite(createdAt) ? createdAt : 0,
+      updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+    };
+  });
 
-  await Promise.all(
-    Array.from(
-      { length: Math.min(6, remoteChats.length) },
-      () => hydrateNext(),
-    ),
-  );
+  return { items, nextCursor: page.nextCursor };
+}
 
-  const remoteIds = new Set(remoteChats.map((chat) => chat.id));
-  const localOnlyChats = localChats.filter(
-    (chat) => !chat.isSynced && !remoteIds.has(chat.id),
-  );
-  return [...hydrated, ...localOnlyChats];
+export function loadRemoteMessages(
+  chatId: string,
+  localMessages: ChatMessage[],
+  cursor?: string,
+  limit = 50,
+) {
+  return listMessages(chatId, localMessages, cursor, limit);
 }

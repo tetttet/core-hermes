@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useEffect,
   useRef,
@@ -57,6 +58,7 @@ type ChatComposerProps = {
   onSend: (message: string, attachments: ChatAttachment[]) => void;
   onStop: () => void;
   isLoading: boolean;
+  disabled?: boolean;
 };
 
 type AttachmentCardProps = {
@@ -375,6 +377,7 @@ export function ChatComposer({
   onSend,
   onStop,
   isLoading,
+  disabled = false,
 }: ChatComposerProps) {
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
@@ -407,9 +410,10 @@ export function ChatComposer({
 
   const hasValue = value.length > 0;
   const animatedPlaceholder = useAnimatedPlaceholder(acceptsMedia, hasValue);
+  const controlsDisabled = isLoading || disabled;
   const canSend =
     (value.trim().length > 0 || attachments.length > 0) &&
-    !isLoading &&
+    !controlsDisabled &&
     !isProcessingFiles;
 
   useEffect(() => {
@@ -440,7 +444,7 @@ export function ChatComposer({
 
       event.preventDefault();
       dragDepthRef.current += 1;
-      if (!isLoading && !isProcessingFiles) setIsDragging(true);
+      if (!controlsDisabled && !isProcessingFiles) setIsDragging(true);
     };
 
     const handleDragOver = (event: globalThis.DragEvent) => {
@@ -465,7 +469,7 @@ export function ChatComposer({
       dragDepthRef.current = 0;
       setIsDragging(false);
 
-      if (!isLoading && !isProcessingFiles) {
+      if (!controlsDisabled && !isProcessingFiles) {
         void processFilesRef.current(
           Array.from(event.dataTransfer?.files ?? []),
         );
@@ -491,7 +495,7 @@ export function ChatComposer({
       window.removeEventListener("dragend", handleDragEnd);
       window.removeEventListener("blur", handleDragEnd);
     };
-  }, [isLoading, isProcessingFiles]);
+  }, [controlsDisabled, isProcessingFiles]);
 
   function clearRemovalTimers() {
     for (const timer of removalTimersRef.current.values()) {
@@ -692,7 +696,7 @@ export function ChatComposer({
                   key={attachment.id}
                   attachment={attachment}
                   isRemoving={removingAttachmentIds.includes(attachment.id)}
-                  disabled={isLoading}
+                  disabled={controlsDisabled}
                   onRemove={removeAttachment}
                   onPreview={setPreviewAttachment}
                 />
@@ -719,6 +723,7 @@ export function ChatComposer({
             value={value}
             rows={1}
             autoFocus
+            disabled={disabled}
             placeholder=""
             aria-label="Сообщение"
             onKeyDown={handleKeyDown}
@@ -745,7 +750,7 @@ export function ChatComposer({
             <ModelSelector
               value={modelId}
               onChange={changeModel}
-              disabled={isLoading || modelLocked || isProcessingFiles}
+              disabled={controlsDisabled || modelLocked || isProcessingFiles}
               locked={modelLocked}
               attachmentKinds={[
                 ...new Set(attachments.map((attachment) => attachment.kind)),
@@ -766,7 +771,7 @@ export function ChatComposer({
                 />
                 <button
                   type="button"
-                  disabled={isLoading || isProcessingFiles}
+                  disabled={controlsDisabled || isProcessingFiles}
                   onClick={() => fileInputRef.current?.click()}
                   aria-label="Прикрепить фото или видео"
                   title="Прикрепить фото или видео"
@@ -843,6 +848,11 @@ export function ChatComposer({
           : acceptsMedia
             ? "Выберите модель или перетащите фото и видео в окно"
             : "Прикрепите файл — для него автоматически включится Auto"}
+      </p>
+      <p className="composer-disclaimer mt-1 text-center text-[11px]">
+        <Link href="/help" className="composer-disclaimer-link">
+          Hermes — ИИ и может ошибаться. Проверяйте важную информацию.
+        </Link>
       </p>
 
       <style>{`

@@ -51,6 +51,9 @@ function isMessage(value: unknown): value is ChatMessage {
     typeof message.id === "string" &&
     (message.role === "user" || message.role === "assistant") &&
     typeof message.content === "string" &&
+    (message.createdAt === undefined ||
+      (typeof message.createdAt === "number" &&
+        Number.isFinite(message.createdAt))) &&
     (message.modelId === undefined || typeof message.modelId === "string") &&
     (message.notice === undefined || typeof message.notice === "string") &&
     (message.status === undefined ||
@@ -73,6 +76,10 @@ function isThread(value: unknown): value is ChatThread {
     isSupportedModel(thread.modelId) &&
     Array.isArray(thread.messages) &&
     thread.messages.every(isMessage) &&
+    (thread.ownerUserId === undefined ||
+      typeof thread.ownerUserId === "string") &&
+    (thread.messagesLoaded === undefined ||
+      typeof thread.messagesLoaded === "boolean") &&
     (thread.isFavorite === undefined ||
       typeof thread.isFavorite === "boolean") &&
     (thread.isSynced === undefined ||
@@ -189,6 +196,39 @@ export function saveChatStore(store: ChatStore) {
   }
 }
 
+export function clearChatStore() {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+    cachedRaw = null;
+    cachedStore = EMPTY_STORE;
+    window.dispatchEvent(new Event(CHANGE_EVENT));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isAccountChat(thread: ChatThread) {
+  return Boolean(thread.ownerUserId || thread.isSynced);
+}
+
+export function clearAccountChats() {
+  const store = getChatSnapshot();
+  const chats = store.chats.filter((chat) => !isAccountChat(chat));
+
+  if (chats.length === store.chats.length) return true;
+  if (chats.length === 0) return clearChatStore();
+
+  return saveChatStore({
+    ...store,
+    activeChatId:
+      store.activeChatId && chats.some((chat) => chat.id === store.activeChatId)
+        ? store.activeChatId
+        : null,
+    chats,
+  });
+}
+
 const REMOTE_FILE_PLACEHOLDER =
   "Этот файл был обработан на другом устройстве. Откройте чат с того устройства, чтобы увидеть файл";
 
@@ -210,11 +250,17 @@ export function mergeRemoteMessages(
     const content = hasMissingAttachment
       ? [remote.content, `> ${REMOTE_FILE_PLACEHOLDER}`].filter(Boolean).join("\n\n")
       : remote.content;
+    const remoteCreatedAt = Date.parse(remote.createdAt);
 
     return {
       id: remote.id,
       role: remote.role,
       content,
+      ...(Number.isFinite(remoteCreatedAt)
+        ? { createdAt: remoteCreatedAt }
+        : local?.createdAt !== undefined
+          ? { createdAt: local.createdAt }
+          : {}),
       ...(attachments?.length ? { attachments } : {}),
       ...(remote.modelId ? { modelId: remote.modelId } : {}),
     };
