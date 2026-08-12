@@ -25,6 +25,40 @@ function optional(name: string) {
   return value || undefined;
 }
 
+function urlList(name: string, fallback: string) {
+  const values = (process.env[name] || fallback)
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => {
+      let url: URL;
+      try {
+        url = new URL(value);
+      } catch {
+        throw new Error(`${name} must contain valid comma-separated URLs`);
+      }
+      if (!["http:", "https:"].includes(url.protocol)) {
+        throw new Error(`${name} must contain only http:// or https:// URLs`);
+      }
+      return url.origin;
+    });
+
+  if (!values.length) {
+    throw new Error(`${name} must contain at least one URL`);
+  }
+  return [...new Set(values)];
+}
+
+function isLocalUrl(value: string) {
+  const hostname = new URL(value).hostname;
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+function selectAppUrl(values: string[], isProduction: boolean) {
+  const preferred = values.find((value) => isLocalUrl(value) !== isProduction);
+  return preferred ?? values[0]!;
+}
+
 function boolean(name: string, fallback: boolean) {
   const value = process.env[name]?.trim().toLowerCase();
   if (!value) return fallback;
@@ -45,6 +79,7 @@ export function loadConfig() {
   const nodeEnv = process.env.NODE_ENV || "development";
   const databaseUrl = required("DATABASE_URL");
   const accessTokenTtl = process.env.ACCESS_TOKEN_TTL || "15m";
+  const appUrls = urlList("APP_URL", "http://localhost:3000");
   if (nodeEnv === "production" && !databaseUrl.includes("-pooler.")) {
     throw new Error("DATABASE_URL must use the Neon pooled (-pooler) endpoint in production");
   }
@@ -56,11 +91,8 @@ export function loadConfig() {
     host: process.env.HOST || "0.0.0.0",
     databaseUrl,
     openRouterApiKey: required("OPENROUTER_API_KEY"),
-    appUrl: process.env.APP_URL || "http://localhost:3000",
-    clientOrigins: (process.env.CLIENT_ORIGINS || "http://localhost:3000")
-      .split(",")
-      .map((origin) => origin.trim())
-      .filter(Boolean),
+    appUrl: selectAppUrl(appUrls, nodeEnv === "production"),
+    clientOrigins: urlList("CLIENT_ORIGINS", "http://localhost:3000"),
     jwtAccessSecret: required("JWT_ACCESS_SECRET", 32),
     jwtIssuer: process.env.JWT_ISSUER || "core-server",
     jwtAudience: process.env.JWT_AUDIENCE || "core-client",

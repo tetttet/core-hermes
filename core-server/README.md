@@ -86,6 +86,9 @@ npm start
 Обычно задаются в production:
 
 - `NODE_ENV`, `PORT`, `HOST`, `APP_URL`, `CLIENT_ORIGINS`.
+- `APP_URL` и `CLIENT_ORIGINS` принимают список URL через запятую, например
+  `http://localhost:3000,https://hermeees.vercel.app`. Для `APP_URL` сервер
+  выбирает локальный URL в development и публичный URL в production.
 - `JWT_ISSUER`, `JWT_AUDIENCE`, `ACCESS_TOKEN_TTL`,
   `REFRESH_TOKEN_TTL_DAYS`, `COOKIE_DOMAIN`.
 - `TRUST_PROXY` — включать только за доверенным reverse proxy.
