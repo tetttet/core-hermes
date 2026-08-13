@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AUTO_MODEL_ID,
   MODELS,
+  TEXT_FALLBACK_MODEL_IDS,
   VISION_FALLBACK_MODEL_IDS,
+  getModelReasoning,
 } from "@/config/models";
 import type { ChatAttachment, ChatMessage } from "@/types/chat";
 import {
@@ -113,6 +115,7 @@ describe("createOpenRouterStream", () => {
       model: string;
       messages: Array<{ role: string; content: string }>;
       stream: boolean;
+      reasoning: { effort: string; exclude: boolean };
       provider: { allow_fallbacks: boolean };
     };
     expect(body.model).toBe(model.id);
@@ -120,6 +123,7 @@ describe("createOpenRouterStream", () => {
     expect(body.messages[0]).toMatchObject({ role: "system" });
     expect(body.messages[0].content).toContain("User Safety");
     expect(body.stream).toBe(true);
+    expect(body.reasoning).toEqual(getModelReasoning(model.id));
     expect(body.provider.allow_fallbacks).toBe(true);
   });
 
@@ -150,8 +154,7 @@ describe("createOpenRouterStream", () => {
       model: string;
       messages: unknown;
     };
-    expect(body.model).toBe("google/gemma-4-26b-a4b-it:free");
-    expect(body.model).not.toBe(VISION_FALLBACK_MODEL_IDS[0]);
+    expect(body.model).toBe(VISION_FALLBACK_MODEL_IDS[0]);
     expect(JSON.stringify(body.messages)).toContain("video_url");
   });
 
@@ -195,7 +198,6 @@ describe("createOpenRouterStream", () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response("", { status: 503 }))
       .mockResolvedValueOnce(new Response("", { status: 503 }))
-      .mockResolvedValueOnce(new Response("", { status: 503 }))
       .mockResolvedValueOnce(sseResponse("Резерв ответил"));
 
     const output = await streamText(
@@ -217,12 +219,44 @@ describe("createOpenRouterStream", () => {
     expect(requestedModels).toEqual([
       VISION_FALLBACK_MODEL_IDS[0],
       VISION_FALLBACK_MODEL_IDS[0],
-      VISION_FALLBACK_MODEL_IDS[0],
       VISION_FALLBACK_MODEL_IDS[1],
     ]);
     expect(output).toContain('"type":"fallback"');
     expect(output).toContain("Переключаемся на резервную модель");
     expect(output).toContain("Резерв ответил");
+  });
+
+  it("falls back from an unavailable manually selected text model", async () => {
+    const selectedModelId = "liquid/lfm-2.5-2.6b:free";
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response("", { status: 503 }))
+      .mockResolvedValueOnce(new Response("", { status: 503 }))
+      .mockResolvedValueOnce(sseResponse("Текстовый резерв ответил"));
+
+    const output = await streamText(
+      createOpenRouterStream({
+        apiKey: "test-key",
+        appUrl: "http://localhost:3000",
+        model: selectedModelId,
+        messages: [userMessage],
+        signal: new AbortController().signal,
+        fetchImpl,
+        retryBaseDelayMs: 0,
+      }),
+    );
+
+    const requestedModels = fetchImpl.mock.calls.map((call) => {
+      const request = call[1] as RequestInit;
+      return (JSON.parse(String(request.body)) as { model: string }).model;
+    });
+    expect(requestedModels).toEqual([
+      selectedModelId,
+      selectedModelId,
+      TEXT_FALLBACK_MODEL_IDS[0],
+    ]);
+    expect(output).toContain('"type":"fallback"');
+    expect(output).toContain("Текстовый резерв ответил");
   });
 
   it("preserves partial content and emits a controlled mid-stream error", async () => {

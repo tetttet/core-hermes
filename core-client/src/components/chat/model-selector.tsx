@@ -7,6 +7,7 @@ import {
   MODELS,
   modelAccepts,
   type AttachmentKind,
+  type ModelGroup,
   type ModelOption,
 } from "@/config/models";
 
@@ -26,9 +27,17 @@ const SHORT_MODEL_TITLES: Record<string, string> = {
   "nvidia/nemotron-nano-12b-v2-vl:free": "Nemotron Vision",
   "openrouter/free": "Auto Free",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron Ultra",
-  "inclusionai/ling-3.0-flash:free": "Ling Flash",
-  "poolside/laguna-s-2.1:free": "Laguna",
   "nvidia/nemotron-3-super-120b-a12b:free": "Nemotron Super",
+  "nvidia/nemotron-3-nano-30b-a3b:free": "Nemotron Nano 30B",
+  "openai/gpt-oss-20b:free": "GPT-OSS 20B",
+  "poolside/laguna-s-2.1:free": "Laguna S",
+  "poolside/laguna-xs-2.1:free": "Laguna XS",
+  "cohere/north-mini-code:free": "North Mini Code",
+  "nvidia/nemotron-3.5-lightning:free": "Nemotron Lightning",
+  "nvidia/nemotron-nano-9b-v2:free": "Nemotron Nano 9B",
+  "inclusionai/ling-3.0-tiny:free": "Ling Tiny",
+  "liquid/lfm-2.5-2.6b:free": "LFM2.5 2.6B",
+  "nvidia/nemotron-3.5-content-safety:free": "Content Safety",
 };
 
 const SHORT_MODEL_DESCRIPTIONS: Record<string, string> = {
@@ -40,11 +49,29 @@ const SHORT_MODEL_DESCRIPTIONS: Record<string, string> = {
   "nvidia/nemotron-nano-12b-v2-vl:free": "Распознавание деталей",
   "openrouter/free": "Бесплатный автоматический выбор",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "Глубокий анализ и логика",
-  "inclusionai/ling-3.0-flash:free": "Быстрые ответы и переводы",
-  "poolside/laguna-s-2.1:free": "Код и технические задачи",
   "nvidia/nemotron-3-super-120b-a12b:free":
     "Баланс скорости и качества",
+  "nvidia/nemotron-3-nano-30b-a3b:free": "Логика и агентные сценарии",
+  "openai/gpt-oss-20b:free": "Рассуждения и инструменты",
+  "poolside/laguna-s-2.1:free": "Сложные задачи с кодом и терминалом",
+  "poolside/laguna-xs-2.1:free": "Быстрые повседневные правки кода",
+  "cohere/north-mini-code:free": "Агентное программирование",
+  "nvidia/nemotron-3.5-lightning:free": "Быстрые агенты, контекст 1M",
+  "nvidia/nemotron-nano-9b-v2:free": "Компактные ответы и логика",
+  "inclusionai/ling-3.0-tiny:free": "Диалоги и выполнение инструкций",
+  "liquid/lfm-2.5-2.6b:free": "RAG и извлечение данных",
+  "nvidia/nemotron-3.5-content-safety:free":
+    "Модерация текста и изображений",
 };
+
+const MODEL_GROUPS: readonly { id: ModelGroup; label: string }[] = [
+  { id: "universal", label: "Универсальные" },
+  { id: "vision", label: "Фото и видео" },
+  { id: "coding", label: "Код и разработка" },
+  { id: "reasoning", label: "Глубокое мышление" },
+  { id: "fast", label: "Быстрые и компактные" },
+  { id: "specialized", label: "Специальные" },
+];
 
 function shortModelTitle(model: ModelOption) {
   return SHORT_MODEL_TITLES[model.id] ?? model.title;
@@ -71,7 +98,7 @@ function ModelItem({
       role="menuitemradio"
       aria-checked={selected}
       onClick={() => onSelect(model.id)}
-      className="model-menu-item group/item flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition"
+      className="model-menu-item group/item flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left transition"
     >
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
@@ -110,6 +137,10 @@ export function ModelSelector({
   );
   const featuredModels = availableModels.filter((model) => model.recommended);
   const otherModels = availableModels.filter((model) => !model.recommended);
+  const groupedModels = MODEL_GROUPS.map((group) => ({
+    ...group,
+    models: otherModels.filter((model) => model.group === group.id),
+  })).filter((group) => group.models.length > 0);
   const selectedModel =
     availableModels.find((model) => model.id === value) ?? availableModels[0];
 
@@ -171,25 +202,29 @@ export function ModelSelector({
         <div
           role="menu"
           aria-label="Выбор модели"
-          className="model-menu absolute bottom-full left-0 z-50 mb-2 w-[min(310px,calc(100vw_-_32px))] rounded-2xl border p-1.5 shadow-2xl"
+          className="model-menu absolute bottom-full left-0 z-50 mb-2 w-[min(310px,calc(100vw_-_32px))] rounded-2xl border p-1 shadow-2xl"
           onMouseLeave={() => setIsOtherOpen(false)}
         >
-          <div className="model-menu-label px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em]">
-            Лучшие модели
-          </div>
-          {featuredModels.map((model, index) => (
-            <ModelItem
-              key={model.id}
-              model={model}
-              selected={model.id === value}
-              recommended={index === 0}
-              onSelect={selectModel}
-            />
-          ))}
+          {featuredModels.length ? (
+            <div className="model-menu-section">
+              <div className="model-menu-label px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em]">
+                Рекомендуем
+              </div>
+              {featuredModels.map((model, index) => (
+                <ModelItem
+                  key={model.id}
+                  model={model}
+                  selected={model.id === value}
+                  recommended={index === 0}
+                  onSelect={selectModel}
+                />
+              ))}
+            </div>
+          ) : null}
 
           {otherModels.length ? (
             <div
-              className="model-other-menu relative mt-1 border-t pt-1"
+              className="model-other-menu relative mt-0.5 border-t pt-0.5"
               onMouseEnter={() => setIsOtherOpen(true)}
             >
               <button
@@ -197,33 +232,40 @@ export function ModelSelector({
                 aria-haspopup="menu"
                 aria-expanded={isOtherOpen}
                 onClick={() => setIsOtherOpen((current) => !current)}
-                className="model-menu-item flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition"
+                className="model-menu-item flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px] font-semibold leading-5">
                     Другие модели
                   </span>
                   <span className="model-menu-description block text-[11px] leading-4">
-                    Ещё {otherModels.length} вариантов
+                    {otherModels.length} моделей по категориям
                   </span>
                 </span>
                 <ChevronDownIcon className="size-4 shrink-0 -rotate-90" />
               </button>
 
               {isOtherOpen ? (
-                <div className="model-submenu sm:absolute sm:bottom-0 sm:left-full sm:w-[310px] sm:pl-2">
+                <div className="model-submenu sm:absolute sm:bottom-0 sm:left-full sm:w-[342px] sm:pl-2">
                   <div
                     role="menu"
                     aria-label="Другие модели"
-                    className="model-menu mt-1 max-h-[240px] overflow-y-auto rounded-2xl border p-1.5 shadow-2xl sm:mt-0"
+                    className="model-menu mt-1 max-h-[min(64vh,440px)] overflow-y-auto overscroll-contain rounded-2xl border p-1 shadow-2xl sm:mt-0"
                   >
-                    {otherModels.map((model) => (
-                      <ModelItem
-                        key={model.id}
-                        model={model}
-                        selected={model.id === value}
-                        onSelect={selectModel}
-                      />
+                    {groupedModels.map((group) => (
+                      <div key={group.id} className="model-menu-section">
+                        <div className="model-menu-label px-3 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.08em]">
+                          {group.label}
+                        </div>
+                        {group.models.map((model) => (
+                          <ModelItem
+                            key={model.id}
+                            model={model}
+                            selected={model.id === value}
+                            onSelect={selectModel}
+                          />
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </div>

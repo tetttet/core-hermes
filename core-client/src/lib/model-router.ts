@@ -1,5 +1,6 @@
 import {
   AUTO_MODEL_ID,
+  TEXT_FALLBACK_MODEL_IDS,
   VISION_FALLBACK_MODEL_IDS,
   findModel,
   modelAccepts,
@@ -34,21 +35,24 @@ export function resolveModelRoute({
   allowFallback,
 }: ResolveModelRouteOptions): ModelRoute {
   const requiredKinds = unique(attachmentKinds);
-  const compatibleVisionModels = VISION_FALLBACK_MODEL_IDS.filter(
+  const fallbackModelIds = requiredKinds.length === 0
+    ? TEXT_FALLBACK_MODEL_IDS
+    : VISION_FALLBACK_MODEL_IDS;
+  const compatibleFallbackModels = fallbackModelIds.filter(
     (modelId) =>
       Boolean(findModel(modelId)) &&
       supportsEveryAttachment(modelId, requiredKinds),
   );
 
   if (selectedModelId === AUTO_MODEL_ID) {
-    return { mode: "auto", candidates: compatibleVisionModels };
+    return { mode: "auto", candidates: compatibleFallbackModels };
   }
 
   if (!supportsEveryAttachment(selectedModelId, requiredKinds)) {
     return { mode: "manual", candidates: [] };
   }
 
-  if (!allowFallback || requiredKinds.length === 0) {
+  if (!allowFallback) {
     return { mode: "manual", candidates: [selectedModelId] };
   }
 
@@ -56,7 +60,7 @@ export function resolveModelRoute({
     mode: "manual",
     candidates: unique([
       selectedModelId,
-      ...compatibleVisionModels.filter((modelId) => modelId !== selectedModelId),
+      ...compatibleFallbackModels.filter((modelId) => modelId !== selectedModelId),
     ]),
   };
 }

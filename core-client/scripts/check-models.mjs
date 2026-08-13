@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { AUTO_MODEL_ID, MODELS } from "../src/config/models.ts";
+import {
+  AUTO_MODEL_ID,
+  MODELS,
+  getModelReasoning,
+} from "../src/config/models.ts";
 
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const apiKey = process.env.OPENROUTER_API_KEY;
@@ -52,8 +56,9 @@ async function check(label, model, messages) {
       body: JSON.stringify({
         model,
         messages,
-        max_tokens: 64,
+        max_tokens: 1024,
         stream: false,
+        reasoning: getModelReasoning(model),
         provider: { allow_fallbacks: true },
       }),
       signal: AbortSignal.timeout(180_000),

@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTO_MODEL_ID,
+  TEXT_FALLBACK_MODEL_IDS,
   VISION_FALLBACK_MODEL_IDS,
   modelAccepts,
 } from "@/config/models";
 import { resolveModelRoute } from "./model-router";
 
 describe("resolveModelRoute", () => {
+  it("uses the verified text allowlist for Auto without attachments", () => {
+    const route = resolveModelRoute({
+      selectedModelId: AUTO_MODEL_ID,
+      attachmentKinds: [],
+      allowFallback: true,
+    });
+
+    expect(route.candidates).toEqual([...TEXT_FALLBACK_MODEL_IDS]);
+  });
+
   it("keeps image Auto inside the ordered vision allowlist", () => {
     const route = resolveModelRoute({
       selectedModelId: AUTO_MODEL_ID,
@@ -28,7 +39,6 @@ describe("resolveModelRoute", () => {
       allowFallback: true,
     });
 
-    expect(route.candidates).not.toContain("google/gemma-4-31b-it:free");
     expect(route.candidates).not.toContain("openrouter/free");
     expect(route.candidates.every((modelId) => modelAccepts(modelId, "video"))).toBe(
       true,
@@ -51,6 +61,20 @@ describe("resolveModelRoute", () => {
     expect(withFallback.candidates[0]).toBe(selectedModelId);
     expect(withFallback.candidates.length).toBeGreaterThan(1);
     expect(strict.candidates).toEqual([selectedModelId]);
+  });
+
+  it("falls back from a manual text model when fallback is enabled", () => {
+    const selectedModelId = "liquid/lfm-2.5-2.6b:free";
+    const route = resolveModelRoute({
+      selectedModelId,
+      attachmentKinds: [],
+      allowFallback: true,
+    });
+
+    expect(route.candidates).toEqual([
+      selectedModelId,
+      ...TEXT_FALLBACK_MODEL_IDS,
+    ]);
   });
 
   it("never routes an image into a text-only manual model", () => {

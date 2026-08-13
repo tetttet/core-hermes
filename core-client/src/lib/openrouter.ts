@@ -1,4 +1,4 @@
-import type { AttachmentKind } from "@/config/models";
+import { getModelReasoning, type AttachmentKind } from "@/config/models";
 import { resolveModelRoute } from "@/lib/model-router";
 import type {
   ChatRequestAttachment,
@@ -8,7 +8,7 @@ import type {
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MAX_HISTORY_MESSAGES = 32;
 const MAX_HISTORY_CHARACTERS = 80_000;
-const MAX_ATTEMPTS_PER_MODEL = 3;
+const MAX_ATTEMPTS_PER_MODEL = 2;
 const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 180_000;
 const DEFAULT_IDLE_TIMEOUT_MS = 180_000;
 const DEFAULT_OVERALL_TIMEOUT_MS = 290_000;
@@ -574,6 +574,7 @@ export function createOpenRouterStream({
                       messages: preparedMessages,
                       stream: true,
                       max_tokens: 4096,
+                      reasoning: getModelReasoning(candidateModel),
                       provider: { allow_fallbacks: true },
                     }),
                     cache: "no-store",
