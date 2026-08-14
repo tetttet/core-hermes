@@ -1,8 +1,8 @@
 import { mergeRemoteMessages } from "./chat-storage";
 import type { ChatMessage, ChatThread, RemoteChatMessage } from "@/types/chat";
 
-const API_BASE = process.env.NEXT_PUBLIC_CORE_API_URL?.replace(/\/$/, "") ?? "";
 const DEVICE_ID_KEY = "hermes-device-id";
+let refreshRequest: Promise<boolean> | null = null;
 
 type ApiErrorBody = { error?: string };
 
@@ -19,7 +19,6 @@ export type UserProfile = {
 export type SurveyAnswer = { questionKey: string; answer: string };
 
 function endpoint(path: string) {
-  if (API_BASE) return `${API_BASE}${path}`;
   return path === "/api/chat/stream" ? "/api/chat" : path;
 }
 
@@ -100,12 +99,23 @@ export async function currentUser() {
   return (await json<{ user: UserProfile }>(response)).user;
 }
 
-export async function refreshSession() {
-  const response = await fetch(endpoint("/api/auth/refresh"), {
+export function refreshSession() {
+  if (refreshRequest) return refreshRequest;
+
+  refreshRequest = fetch(endpoint("/api/auth/refresh"), {
     method: "POST",
     credentials: "include",
-  });
-  return response.ok;
+  })
+    .then((response) => {
+      if (response.ok) return true;
+      if (response.status === 401) return false;
+      throw new Error("Не удалось обновить сессию");
+    })
+    .finally(() => {
+      refreshRequest = null;
+    });
+
+  return refreshRequest;
 }
 
 export async function listChats(cursor?: string, limit = 30) {

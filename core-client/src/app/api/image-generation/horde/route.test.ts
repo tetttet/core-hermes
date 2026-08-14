@@ -11,7 +11,10 @@ const requestBody = {
 };
 
 describe("AI Horde image route", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
 
   it("submits a no-store anonymous generation without persisting it", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
@@ -38,7 +41,7 @@ describe("AI Horde image route", () => {
     expect(upstreamBody.models).toEqual(["stable_diffusion"]);
   });
 
-  it("generates Pollinations Flux through the free image endpoint", async () => {
+  it("generates through the anonymous Pollinations endpoint without a key", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(new Uint8Array([1, 2, 3]), {
         headers: { "Content-Type": "image/jpeg" },
@@ -65,7 +68,61 @@ describe("AI Horde image route", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
       "image.pollinations.ai/prompt/",
     );
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("model=flux");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("model=sana");
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("enhance=");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      cache: "no-store",
+    });
+  });
+
+  it("uses the current Pollinations endpoint and server-side key when configured", async () => {
+    vi.stubEnv("POLLINATIONS_API_KEY", "sk_test_pollinations");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        headers: { "Content-Type": "image/jpeg" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      new Request("http://localhost/api/image-generation/horde", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...requestBody, model: "pollinations_flux" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "gen.pollinations.ai/image/",
+    );
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("model=dreamshaper");
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("nologo=");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: expect.objectContaining({
+        Authorization: "Bearer sk_test_pollinations",
+      }),
+    });
+  });
+
+  it("rejects seeds outside the Pollinations integer range", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      new Request("http://localhost/api/image-generation/horde", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...requestBody,
+          model: "pollinations_flux",
+          seed: "2147483648",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("returns queue progress and a ready base64 image", async () => {

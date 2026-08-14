@@ -198,7 +198,6 @@ export function authRouter(context: AppContext) {
   router.post("/refresh", authLimit, async (request, response) => {
     const parsed = context.tokens.parseRefreshToken(request.cookies.refresh_token);
     if (!parsed) {
-      clearAuthCookies(response, request, context);
       response.status(401).json({ error: "Сессия истекла" });
       return;
     }
@@ -230,7 +229,6 @@ export function authRouter(context: AppContext) {
     });
     const user = result.rows[0];
     if (!user) {
-      clearAuthCookies(response, request, context);
       response.status(401).json({ error: "Сессия истекла" });
       return;
     }

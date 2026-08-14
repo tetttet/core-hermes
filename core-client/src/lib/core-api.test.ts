@@ -5,6 +5,7 @@ import {
   deleteAllRemoteChats,
   loadRemoteChats,
   loadRemoteMessages,
+  refreshSession,
 } from "./core-api";
 
 describe("remote chat history", () => {
@@ -134,5 +135,31 @@ describe("remote chat history", () => {
     expect(calls.filter((call) => call.method === "GET")).toHaveLength(2);
     expect(calls[0]?.url).toContain("limit=100");
     expect(calls.filter((call) => call.method === "DELETE")).toHaveLength(3);
+  });
+
+  it("deduplicates concurrent refresh token rotations", async () => {
+    let resolveFetch!: (response: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => {
+      resolveFetch = resolve;
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = refreshSession();
+    const second = refreshSession();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolveFetch(new Response(null, { status: 204 }));
+
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+  });
+
+  it("does not treat a temporary refresh failure as an expired session", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 503 })));
+
+    await expect(refreshSession()).rejects.toThrow("Не удалось обновить сессию");
   });
 });

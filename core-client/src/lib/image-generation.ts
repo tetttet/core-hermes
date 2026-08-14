@@ -28,11 +28,13 @@ export const IMAGE_MODELS = [
     apiModelId: "Anything v5",
   },
   {
+    // Keep the legacy id so previously saved local generations still load.
     id: "pollinations_flux",
-    name: "Pollinations · Flux",
-    description: "Быстрая бесплатная генерация без очереди AI Horde",
+    name: "Pollinations · Free",
+    description: "Быстрая генерация без API-ключа и очереди AI Horde",
     provider: "pollinations",
-    apiModelId: "flux",
+    apiModelId: "dreamshaper",
+    anonymousApiModelId: "sana",
   },
 ] as const;
 
@@ -56,6 +58,9 @@ export type ImageModelId = (typeof IMAGE_MODELS)[number]["id"];
 export type ImageStyleId = (typeof IMAGE_STYLES)[number]["id"];
 export type ImageAspectRatio = (typeof IMAGE_ASPECT_RATIOS)[number]["id"];
 export type ImageQuality = "standard" | "high";
+
+export const MIN_IMAGE_SEED = -1;
+export const MAX_IMAGE_SEED = 2_147_483_647;
 
 export type GenerateImageRequest = {
   prompt: string;
@@ -136,11 +141,28 @@ export function isImageAspectRatio(value: unknown): value is ImageAspectRatio {
   return IMAGE_ASPECT_RATIOS.some((ratio) => ratio.id === value);
 }
 
+export function isImageSeed(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const seed = value.trim();
+  if (!/^-?\d+$/.test(seed)) return false;
+
+  const numericSeed = Number(seed);
+  return (
+    Number.isInteger(numericSeed) &&
+    numericSeed >= MIN_IMAGE_SEED &&
+    numericSeed <= MAX_IMAGE_SEED
+  );
+}
+
+function createImageSeed() {
+  return String(Date.now() % (MAX_IMAGE_SEED + 1));
+}
+
 export function buildHordeGenerationPayload(request: GenerateImageRequest) {
   const dimensions =
     IMAGE_ASPECT_RATIOS.find((ratio) => ratio.id === request.aspectRatio) ??
     IMAGE_ASPECT_RATIOS[0];
-  const seed = request.seed?.trim() || String(Date.now());
+  const seed = request.seed?.trim() || createImageSeed();
   const styleDirection = STYLE_DIRECTIONS[request.style];
   const prompt = [request.prompt.trim(), styleDirection]
     .filter(Boolean)

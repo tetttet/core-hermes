@@ -3,6 +3,7 @@ import {
   getImageModel,
   isImageAspectRatio,
   isImageModelId,
+  isImageSeed,
   isImageStyleId,
   type GenerateImageRequest,
   type ImageGenerationErrorResponse,
@@ -13,7 +14,9 @@ import {
 export const runtime = "nodejs";
 
 const AI_HORDE_API_BASE_URL = "https://aihorde.net/api/v2";
-const POLLINATIONS_IMAGE_API_BASE_URL = "https://image.pollinations.ai/prompt";
+const POLLINATIONS_IMAGE_API_BASE_URL = "https://gen.pollinations.ai/image";
+const POLLINATIONS_ANONYMOUS_IMAGE_API_BASE_URL =
+  "https://image.pollinations.ai/prompt";
 const AI_HORDE_ANONYMOUS_API_KEY = "0000000000";
 const AI_HORDE_DEFAULT_CLIENT_AGENT = "HermesAI:1.0:support@example.com";
 const MAX_PROMPT_LENGTH = 1_600;
@@ -31,6 +34,10 @@ type HordeCheckResponse = {
 
 type HordeStatusResponse = HordeCheckResponse & {
   generations?: Array<{ img?: string; seed?: string }>;
+};
+
+type PollinationsErrorResponse = {
+  error?: string | { message?: string };
 };
 
 function noStoreHeaders() {
@@ -77,7 +84,7 @@ function validateRequest(value: unknown): GenerateImageRequest | null {
     !isImageAspectRatio(body.aspectRatio) ||
     (body.quality !== "standard" && body.quality !== "high") ||
     (body.seed !== undefined &&
-      (typeof body.seed !== "string" || body.seed.length > 32))
+      !isImageSeed(body.seed))
   ) {
     return null;
   }
@@ -97,34 +104,61 @@ function formatWaitingMessage(check: HordeCheckResponse) {
 
 async function generateWithPollinations(input: GenerateImageRequest) {
   const { payload, seed, resolution } = buildHordeGenerationPayload(input);
+  const model = getImageModel(input.model);
+  const apiKey = process.env.POLLINATIONS_API_KEY?.trim();
+  const isAuthenticated = Boolean(apiKey);
   const params = new URLSearchParams({
-    model: getImageModel(input.model).apiModelId,
+    model: isAuthenticated
+      ? model.apiModelId
+      : "anonymousApiModelId" in model
+        ? model.anonymousApiModelId
+        : model.apiModelId,
     width: String(payload.params.width),
     height: String(payload.params.height),
     seed,
-    nologo: "true",
     safe: "true",
-    enhance: input.quality === "high" ? "true" : "false",
   });
-  const url = `${POLLINATIONS_IMAGE_API_BASE_URL}/${encodeURIComponent(payload.prompt)}?${params}`;
+  if (!isAuthenticated) params.set("nologo", "true");
+
+  const baseUrl = isAuthenticated
+    ? POLLINATIONS_IMAGE_API_BASE_URL
+    : POLLINATIONS_ANONYMOUS_IMAGE_API_BASE_URL;
+  const url = `${baseUrl}/${encodeURIComponent(payload.prompt)}?${params}`;
 
   try {
     const response = await fetch(url, {
-      headers: { Accept: "image/avif,image/webp,image/jpeg,image/png" },
+      headers: {
+        Accept: "image/avif,image/webp,image/jpeg,image/png",
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
       cache: "no-store",
       signal: AbortSignal.timeout(120_000),
     });
     const mimeType = response.headers.get("content-type")?.split(";")[0] ?? "";
     const declaredLength = Number(response.headers.get("content-length") ?? 0);
-    if (
-      !response.ok ||
-      !mimeType.startsWith("image/") ||
-      (Number.isFinite(declaredLength) && declaredLength > 8_000_000)
-    ) {
+    if (Number.isFinite(declaredLength) && declaredLength > 8_000_000) {
+      return jsonError("Изображение Pollinations превышает лимит 8 МБ.", 502);
+    }
+    if (!response.ok || !mimeType.startsWith("image/")) {
+      const errorBody = await response.json().catch(() => null) as
+        | PollinationsErrorResponse
+        | null;
+      const upstreamMessage = typeof errorBody?.error === "string"
+        ? errorBody.error
+        : errorBody?.error?.message;
+      const statusMessage = response.status === 401
+        ? "Ключ Pollinations отсутствует или недействителен."
+        : response.status === 402
+          ? "На ключе Pollinations недостаточно Pollen."
+          : response.status === 403
+            ? "Ключ Pollinations не имеет доступа к этой модели."
+            : response.status === 429 || response.status === 503
+              ? "Pollinations перегружен. Попробуйте немного позже."
+              : response.status === 400 && upstreamMessage
+                ? `Pollinations отклонил параметры: ${upstreamMessage}`
+                : "Pollinations не смог создать изображение.";
       return jsonError(
-        response.status === 429 || response.status === 503
-          ? "Pollinations перегружен. Попробуйте немного позже."
-          : "Pollinations не смог создать изображение.",
+        statusMessage,
         response.ok ? 502 : response.status,
       );
     }

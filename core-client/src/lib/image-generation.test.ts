@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { buildHordeGenerationPayload, getImageModel } from "./image-generation";
+import { describe, expect, it, vi } from "vitest";
+import {
+  buildHordeGenerationPayload,
+  getImageModel,
+  MAX_IMAGE_SEED,
+} from "./image-generation";
 
 describe("buildHordeGenerationPayload", () => {
   it("uses the selected free model and disables public sharing", () => {
@@ -24,10 +28,28 @@ describe("buildHordeGenerationPayload", () => {
     expect(result.payload.prompt).toContain("cinematic lighting");
   });
 
-  it("exposes Pollinations Flux as a separate free provider", () => {
+  it("exposes the anonymous Pollinations model as a separate free provider", () => {
     expect(getImageModel("pollinations_flux")).toMatchObject({
       provider: "pollinations",
-      apiModelId: "flux",
+      apiModelId: "dreamshaper",
+      anonymousApiModelId: "sana",
     });
+  });
+
+  it("keeps automatically generated seeds inside the Pollinations range", () => {
+    const now = 1_786_690_000_000;
+    const dateSpy = vi.spyOn(Date, "now").mockReturnValue(now);
+
+    const result = buildHordeGenerationPayload({
+      prompt: "Тихая улица после дождя",
+      model: "pollinations_flux",
+      style: "none",
+      aspectRatio: "1:1",
+      quality: "standard",
+    });
+
+    expect(result.seed).toBe(String(now % (MAX_IMAGE_SEED + 1)));
+    expect(Number(result.seed)).toBeLessThanOrEqual(MAX_IMAGE_SEED);
+    dateSpy.mockRestore();
   });
 });

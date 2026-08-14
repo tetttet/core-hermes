@@ -1,12 +1,12 @@
 import type { Logger } from "pino";
 import type { AppConfig } from "../config.js";
 import type { ChatAttachment, ChatMessage } from "../lib/chat-input.js";
-import { resolveModelRoute } from "../lib/models.js";
+import { getModelReasoning, resolveModelRoute } from "../lib/models.js";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MAX_HISTORY_MESSAGES = 32;
 const MAX_HISTORY_CHARACTERS = 80_000;
-const MAX_ATTEMPTS_PER_MODEL = 3;
+const MAX_ATTEMPTS_PER_MODEL = 2;
 const RETRY_BASE_DELAY_MS = 650;
 const SLOW_NOTICE_MS = 15_000;
 const SYSTEM_PROMPT =
@@ -361,6 +361,7 @@ export async function runOpenRouterStream(options: RunOptions) {
               messages: upstreamMessages,
               stream: true,
               max_tokens: 4_096,
+              reasoning: getModelReasoning(candidate),
               provider: { allow_fallbacks: true },
             }),
             cache: "no-store",

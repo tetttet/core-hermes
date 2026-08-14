@@ -37,7 +37,7 @@ function scheduleRefresh() {
     void refreshSession().then((refreshed) => {
       if (refreshed) scheduleRefresh();
       else publish({ status: "guest", user: null });
-    });
+    }).catch(() => scheduleRefresh());
   }, 12 * 60 * 1_000);
 }
 

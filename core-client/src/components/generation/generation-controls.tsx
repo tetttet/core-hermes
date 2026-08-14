@@ -14,6 +14,7 @@ import {
   IMAGE_ASPECT_RATIOS,
   IMAGE_MODELS,
   IMAGE_STYLES,
+  MAX_IMAGE_SEED,
   type ImageAspectRatio,
   type ImageModelId,
   type ImageQuality,
@@ -147,6 +148,15 @@ export function GenerationControls({
     }
   }
 
+  function handleSeedChange(value: string) {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    onSeedChange(
+      digits && Number(digits) > MAX_IMAGE_SEED
+        ? String(MAX_IMAGE_SEED)
+        : digits,
+    );
+  }
+
   return (
     <form
       id="generation-controls"
@@ -245,8 +255,9 @@ export function GenerationControls({
               <input
                 aria-label="Seed"
                 value={seed}
-                maxLength={32}
-                onChange={(event) => onSeedChange(event.target.value)}
+                inputMode="numeric"
+                maxLength={10}
+                onChange={(event) => handleSeedChange(event.target.value)}
                 placeholder="случайный"
                 disabled={isGenerating}
               />

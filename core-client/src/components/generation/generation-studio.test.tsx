@@ -56,12 +56,19 @@ describe("GenerationStudio", () => {
     expect(screen.getByRole("button", { name: /Модель: DreamShaper/ })).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: /Модель: DreamShaper/ }));
-    fireEvent.click(screen.getByRole("option", { name: /Pollinations · Flux/ }));
-    expect(screen.getByRole("button", { name: /Модель: Pollinations · Flux/ })).toBeDefined();
+    fireEvent.click(screen.getByRole("option", { name: /Pollinations · Free/ }));
+    expect(screen.getByRole("button", { name: /Модель: Pollinations · Free/ })).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: /Формат: 1:1/ }));
     fireEvent.click(screen.getByRole("option", { name: /16:9 · Альбом/ }));
     expect(screen.getByRole("button", { name: /Формат: 16:9 · Альбом/ })).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("Seed"), {
+      target: { value: "9999999999" },
+    });
+    expect((screen.getByLabelText("Seed") as HTMLInputElement).value).toBe(
+      "2147483647",
+    );
   });
 
   it("shows an API error inside the workspace without alert dialogs", async () => {

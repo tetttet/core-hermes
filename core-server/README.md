@@ -31,8 +31,8 @@ Express выбран вместо Fastify: в этом приложении end-
 Neon/OpenRouter и первым токеном модели, а не маршрутизацией нескольких
 middleware. Переезд существующего Express-контракта ради долей миллисекунды не
 даёт ощутимого выигрыша. Горячий путь ускорен там, где эффект заметен: JWT без
-SQL, LRU, reused DB connections, cursor pagination и отсутствие промежуточного
-Next proxy при заданном `NEXT_PUBLIC_CORE_API_URL`.
+SQL, LRU, reused DB connections и cursor pagination. Next proxy сохраняет auth
+cookies на домене веб-приложения; потоковый ответ проксируется без буферизации.
 
 ## Эндпоинты
 
@@ -99,8 +99,9 @@ npm start
 - `JSON_BODY_LIMIT`, `OPENROUTER_FIRST_TOKEN_TIMEOUT_MS`,
   `OPENROUTER_IDLE_TIMEOUT_MS`, `OPENROUTER_OVERALL_TIMEOUT_MS`, `LOG_LEVEL`.
 
-Клиенту нужен `NEXT_PUBLIC_CORE_API_URL`. В production самый быстрый и простой
-для cookies вариант — reverse proxy `/api` на `core-server` под тем же site.
+Клиенту нужен серверный `CORE_API_URL`. Next.js проксирует `/api` на
+`core-server` под доменом веб-приложения, поэтому auth cookies остаются
+first-party и не зависят от ограничений браузера на сторонние cookies.
 
 ## Решения, влияющие на latency
 
