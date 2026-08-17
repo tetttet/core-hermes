@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import {
   useEffect,
   useId,
@@ -9,8 +9,9 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { Link } from "@/i18n/navigation";
 import { ChevronDownIcon, MenuIcon } from "@/components/icons";
-import { findModel, getModel } from "@/config/models";
+import { AUTO_MODEL_ID, findModel, getModel } from "@/config/models";
 import { ChatStreamError, consumeChatResponse, prepareApiMessages } from "@/lib/chat-stream";
 import {
   deleteRemoteChat,
@@ -98,6 +99,9 @@ function removeAssistantMessage(chatId: string, assistantId: string) {
 }
 
 export function ChatShell() {
+  const t = useTranslations("Chat");
+  const modelText = useTranslations("Models");
+  const locale = useLocale();
   const auth = useSyncExternalStore(
     subscribeToAuth,
     getAuthSnapshot,
@@ -226,7 +230,7 @@ export function ChatShell() {
       .catch(() => {
         if (!cancelled) {
           syncedUserRef.current = null;
-          setChatListError("Не удалось загрузить чаты");
+          setChatListError(t("loadChatsError"));
         }
       })
       .finally(() => {
@@ -239,7 +243,7 @@ export function ChatShell() {
         syncedUserRef.current = null;
       }
     };
-  }, [auth, chatListRetryNonce]);
+  }, [auth, chatListRetryNonce, t]);
 
   useEffect(() => {
     if (
@@ -273,7 +277,7 @@ export function ChatShell() {
       .catch(() => {
         setHistoryLoadFailedChatId(chatId);
         if (getChatSnapshot().activeChatId === chatId) {
-          setError("Не удалось загрузить историю чата.");
+          setError(t("loadHistoryError"));
         }
       })
       .finally(() => {
@@ -287,6 +291,7 @@ export function ChatShell() {
     auth.status,
     historyLoadFailedChatId,
     historyRetryNonce,
+    t,
   ]);
 
   useLayoutEffect(() => {
@@ -408,7 +413,7 @@ export function ChatShell() {
       });
       setNextChatsCursor(page.nextCursor);
     } catch {
-      setChatListError("Не удалось загрузить остальные чаты");
+      setChatListError(t("loadMoreChatsError"));
     } finally {
       setIsLoadingMoreChats(false);
     }
@@ -467,7 +472,7 @@ export function ChatShell() {
         [chatId]: page.nextCursor,
       }));
     } catch {
-      setError("Не удалось загрузить ранние сообщения.");
+      setError(t("loadOlderError"));
     } finally {
       setLoadingOlderChatId(null);
     }
@@ -496,7 +501,7 @@ export function ChatShell() {
     saveChatStore({ ...store, chats, activeChatId: nextActiveChatId });
     if (auth.status === "authenticated" && chatToDelete?.isSynced) {
       void deleteRemoteChat(chatId).catch(() => {
-        setError("Не удалось удалить чат на других устройствах.");
+        setError(t("deleteRemoteError"));
       });
     }
   }
@@ -511,7 +516,7 @@ export function ChatShell() {
     });
     if (auth.status === "authenticated" && chatToRename?.isSynced) {
       void updateRemoteChat(chatId, { title: newTitle }).catch(() => {
-        setError("Не удалось обновить название на других устройствах.");
+        setError(t("renameRemoteError"));
       });
     }
   }
@@ -531,7 +536,7 @@ export function ChatShell() {
     });
     if (auth.status === "authenticated" && chatToUpdate.isSynced) {
       void updateRemoteChat(chatId, { isFavorite }).catch(() => {
-        setError("Не удалось обновить избранное на других устройствах.");
+        setError(t("favoriteRemoteError"));
       });
     }
   }
@@ -568,7 +573,7 @@ export function ChatShell() {
     setLoadingChatId(pending.chatId);
     setError("");
     setIsStorageError(false);
-    setProgressMessage("Отправка запроса...");
+    setProgressMessage(t("sending"));
     updateAssistantMessage(
       pending.chatId,
       pending.assistantId,
@@ -626,7 +631,7 @@ export function ChatShell() {
           accumulated = fullContent;
           if (!receivedFirstDelta) {
             receivedFirstDelta = true;
-            setProgressMessage("Получаем ответ...");
+            setProgressMessage(t("receiving"));
           }
           if (animationFrame === null) {
             animationFrame = requestAnimationFrame(() => flush("streaming"));
@@ -646,7 +651,25 @@ export function ChatShell() {
           );
         },
         onStatus(status) {
-          setProgressMessage(status.message);
+          if (status.phase === "sending") {
+            setProgressMessage(t("sending"));
+          } else if (status.phase === "processing") {
+            const attachments = pending.messages.at(-1)?.attachments ?? [];
+            const processingKey = attachments.some(
+              (attachment) => attachment.kind === "video",
+            )
+              ? "processingVideo"
+              : attachments.some((attachment) => attachment.kind === "image")
+                ? "processingImage"
+                : "processing";
+            setProgressMessage(t(processingKey));
+          } else if (status.phase === "retrying") {
+            setProgressMessage(t("retrying"));
+          } else if (status.phase === "fallback") {
+            setProgressMessage(t("fallback"));
+          } else if (status.phase === "slow") {
+            setProgressMessage(t("slow"));
+          }
         },
       });
       accumulated = result.content;
@@ -716,10 +739,10 @@ export function ChatShell() {
         );
 
         const message = storageFailed
-          ? "Не хватает места для ответа. Удалите старые чаты."
-          : requestError instanceof Error
+          ? t("storageError")
+          : locale === "ru" && requestError instanceof Error
             ? requestError.message
-            : "Что-то пошло не так. Попробуйте ещё раз.";
+            : t("genericError");
         setError(message);
         setIsStorageError(storageFailed);
 
@@ -801,7 +824,7 @@ export function ChatShell() {
         : [nextChat, ...store.chats],
     });
     if (!didSave) {
-      setError("Не хватает места для чатов. Удалите старые чаты или большое вложение.");
+      setError(t("chatStorageError"));
       setIsStorageError(true);
       return;
     }
@@ -846,7 +869,7 @@ export function ChatShell() {
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              aria-label="Открыть список чатов"
+              aria-label={t("openChats")}
               className="app-icon-button flex size-9 items-center justify-center rounded-lg lg:hidden"
             >
               <MenuIcon className="size-5" />
@@ -857,7 +880,7 @@ export function ChatShell() {
                   <input
                     ref={headerRenameRef}
                     className="chat-header-rename"
-                    aria-label="Новое название чата"
+                    aria-label={t("newTitle")}
                     value={headerRenameValue}
                     onChange={(event) => setHeaderRenameValue(event.target.value)}
                     onBlur={submitHeaderRename}
@@ -871,12 +894,14 @@ export function ChatShell() {
                   />
                 ) : (
                   <div className="chat-header-title truncate text-sm font-medium">
-                    {activeChat?.title ?? "Новый чат"}
+                    {activeChat?.title ?? t("newChat")}
                   </div>
                 )}
                 {activeChat ? (
                   <div className="chat-header-model truncate text-[11px]">
-                    {getModel(activeChat.modelId).title}
+                    {activeChat.modelId === AUTO_MODEL_ID
+                      ? modelText("autoTitle")
+                      : getModel(activeChat.modelId).title}
                   </div>
                 ) : null}
               </div>
@@ -885,7 +910,7 @@ export function ChatShell() {
                   ref={headerMenuButtonRef}
                   type="button"
                   className="chat-header-menu-button"
-                  aria-label={`Действия с чатом «${activeChat.title}»`}
+                  aria-label={t("chatActions", { title: activeChat.title })}
                   aria-haspopup="menu"
                   aria-expanded={headerMenuOpen}
                   aria-controls={headerMenuOpen ? headerMenuId : undefined}
@@ -951,7 +976,7 @@ export function ChatShell() {
                       href="/settings?tab=data"
                       className="chat-error-storage-action shrink-0 rounded-lg border px-2.5 py-1 text-xs font-medium"
                     >
-                      Освободить место
+                      {t("freeSpace")}
                     </Link>
                   ) : historyLoadFailedChatId === activeChat?.id ? (
                     <button
@@ -959,7 +984,7 @@ export function ChatShell() {
                       onClick={retryHistoryLoad}
                       className="chat-error-retry shrink-0 rounded-lg border px-2.5 py-1 text-xs font-medium"
                     >
-                      Повторить
+                      {t("retry")}
                     </button>
                   ) : canRetry && !isLoading ? (
                     <button
@@ -967,7 +992,7 @@ export function ChatShell() {
                       onClick={retryLastRequest}
                       className="chat-error-retry shrink-0 rounded-lg border px-2.5 py-1 text-xs font-medium"
                     >
-                      Повторить
+                      {t("retry")}
                     </button>
                   ) : null}
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CheckIcon, ChevronDownIcon } from "@/components/icons";
 import {
   AUTO_MODEL_ID,
@@ -20,7 +21,6 @@ type ModelSelectorProps = {
 };
 
 const SHORT_MODEL_TITLES: Record<string, string> = {
-  [AUTO_MODEL_ID]: "Auto",
   "google/gemma-4-26b-a4b-it:free": "Gemma 4 Fast",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "Nemotron Omni",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron Ultra",
@@ -34,38 +34,28 @@ const SHORT_MODEL_TITLES: Record<string, string> = {
   "nvidia/nemotron-nano-9b-v2:free": "Nemotron Nano 9B",
 };
 
-const SHORT_MODEL_DESCRIPTIONS: Record<string, string> = {
-  [AUTO_MODEL_ID]: "Сам выберет лучшую модель",
-  "google/gemma-4-26b-a4b-it:free": "Быстрый анализ фото и видео",
-  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free":
-    "Сложные визуальные задачи",
-  "nvidia/nemotron-3-ultra-550b-a55b:free": "Глубокий анализ и логика",
-  "nvidia/nemotron-3-super-120b-a12b:free":
-    "Баланс скорости и качества",
-  "nvidia/nemotron-3-nano-30b-a3b:free": "Логика и агентные сценарии",
-  "openai/gpt-oss-20b:free": "Рассуждения и инструменты",
-  "poolside/laguna-s-2.1:free": "Сложные задачи с кодом и терминалом",
-  "poolside/laguna-xs-2.1:free": "Быстрые повседневные правки кода",
-  "cohere/north-mini-code:free": "Агентное программирование",
-  "nvidia/nemotron-3.5-lightning:free": "Быстрые агенты, контекст 1M",
-  "nvidia/nemotron-nano-9b-v2:free": "Компактные ответы и логика",
+const SHORT_MODEL_DESCRIPTION_KEYS: Record<string, string> = {
+  [AUTO_MODEL_ID]: "autoDescription",
+  "google/gemma-4-26b-a4b-it:free": "gemmaDescription",
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "omniDescription",
+  "nvidia/nemotron-3-ultra-550b-a55b:free": "ultraDescription",
+  "nvidia/nemotron-3-super-120b-a12b:free": "superDescription",
+  "nvidia/nemotron-3-nano-30b-a3b:free": "nano30Description",
+  "openai/gpt-oss-20b:free": "gptOssDescription",
+  "poolside/laguna-s-2.1:free": "lagunaSDescription",
+  "poolside/laguna-xs-2.1:free": "lagunaXsDescription",
+  "cohere/north-mini-code:free": "northDescription",
+  "nvidia/nemotron-3.5-lightning:free": "lightningDescription",
+  "nvidia/nemotron-nano-9b-v2:free": "nano9Description",
 };
 
-const MODEL_GROUPS: readonly { id: ModelGroup; label: string }[] = [
-  { id: "universal", label: "Универсальные" },
-  { id: "vision", label: "Фото и видео" },
-  { id: "coding", label: "Код и разработка" },
-  { id: "reasoning", label: "Глубокое мышление" },
-  { id: "fast", label: "Быстрые и компактные" },
+const MODEL_GROUPS: readonly { id: ModelGroup; labelKey: string }[] = [
+  { id: "universal", labelKey: "universal" },
+  { id: "vision", labelKey: "vision" },
+  { id: "coding", labelKey: "coding" },
+  { id: "reasoning", labelKey: "reasoning" },
+  { id: "fast", labelKey: "fast" },
 ];
-
-function shortModelTitle(model: ModelOption) {
-  return SHORT_MODEL_TITLES[model.id] ?? model.title;
-}
-
-function shortModelDescription(model: ModelOption) {
-  return SHORT_MODEL_DESCRIPTIONS[model.id] ?? model.description;
-}
 
 function ModelItem({
   model,
@@ -78,6 +68,13 @@ function ModelItem({
   recommended?: boolean;
   onSelect: (modelId: string) => void;
 }) {
+  const t = useTranslations("ModelSelector");
+  const title = model.id === AUTO_MODEL_ID
+    ? t("auto")
+    : SHORT_MODEL_TITLES[model.id] ?? model.title;
+  const descriptionKey = SHORT_MODEL_DESCRIPTION_KEYS[model.id];
+  const description = descriptionKey ? t(descriptionKey) : model.description;
+
   return (
     <button
       type="button"
@@ -89,16 +86,16 @@ function ModelItem({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate text-[13px] font-semibold leading-5">
-            {shortModelTitle(model)}
+            {title}
           </span>
           {recommended ? (
             <span className="model-recommended-tag shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.04em]">
-              Совет
+              {t("recommendedTag")}
             </span>
           ) : null}
         </span>
         <span className="model-menu-description mt-0.5 block text-[11px] leading-[15px]">
-          {shortModelDescription(model)}
+          {description}
         </span>
       </span>
       <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
@@ -115,6 +112,7 @@ export function ModelSelector({
   locked,
   attachmentKinds = [],
 }: ModelSelectorProps) {
+  const t = useTranslations("ModelSelector");
   const [isOpen, setIsOpen] = useState(false);
   const [isOtherOpen, setIsOtherOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -125,6 +123,7 @@ export function ModelSelector({
   const otherModels = availableModels.filter((model) => !model.recommended);
   const groupedModels = MODEL_GROUPS.map((group) => ({
     ...group,
+    label: t(group.labelKey),
     models: otherModels.filter((model) => model.group === group.id),
   })).filter((group) => group.models.length > 0);
   const selectedModel =
@@ -161,6 +160,9 @@ export function ModelSelector({
   }
 
   if (!selectedModel) return null;
+  const selectedTitle = selectedModel.id === AUTO_MODEL_ID
+    ? t("auto")
+    : SHORT_MODEL_TITLES[selectedModel.id] ?? selectedModel.title;
 
   return (
     <div ref={rootRef} className="relative min-w-0">
@@ -169,14 +171,14 @@ export function ModelSelector({
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        title={locked ? "Модель закреплена за этим чатом" : "Выбрать модель"}
+        title={locked ? t("locked") : t("choose")}
         onClick={() => {
           setIsOpen((current) => !current);
           setIsOtherOpen(false);
         }}
         className="model-selector flex h-8 max-w-[180px] cursor-pointer items-center gap-1 rounded-lg px-2 text-sm font-medium outline-none transition disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <span className="truncate">{shortModelTitle(selectedModel)}</span>
+        <span className="truncate">{selectedTitle}</span>
         <ChevronDownIcon
           className={`size-4 shrink-0 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -187,14 +189,14 @@ export function ModelSelector({
       {isOpen ? (
         <div
           role="menu"
-          aria-label="Выбор модели"
+          aria-label={t("menu")}
           className="model-menu absolute bottom-full left-0 z-50 mb-2 w-[min(310px,calc(100vw_-_32px))] rounded-2xl border p-1 shadow-2xl"
           onMouseLeave={() => setIsOtherOpen(false)}
         >
           {featuredModels.length ? (
             <div className="model-menu-section">
               <div className="model-menu-label px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em]">
-                Рекомендуем
+                {t("recommended")}
               </div>
               {featuredModels.map((model, index) => (
                 <ModelItem
@@ -222,10 +224,10 @@ export function ModelSelector({
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px] font-semibold leading-5">
-                    Другие модели
+                    {t("other")}
                   </span>
                   <span className="model-menu-description block text-[11px] leading-4">
-                    {otherModels.length} моделей по категориям
+                    {t("otherCount", { count: otherModels.length })}
                   </span>
                 </span>
                 <ChevronDownIcon className="size-4 shrink-0 -rotate-90" />
@@ -235,7 +237,7 @@ export function ModelSelector({
                 <div className="model-submenu sm:absolute sm:bottom-0 sm:left-full sm:w-[342px] sm:pl-2">
                   <div
                     role="menu"
-                    aria-label="Другие модели"
+                    aria-label={t("otherMenu")}
                     className="model-menu mt-1 max-h-[min(64vh,440px)] overflow-y-auto overscroll-contain rounded-2xl border p-1 shadow-2xl sm:mt-0"
                   >
                     {groupedModels.map((group) => (

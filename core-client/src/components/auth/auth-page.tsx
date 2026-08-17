@@ -1,14 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   useEffect,
   useState,
   useSyncExternalStore,
   type FormEvent,
 } from "react";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   getAuthServerSnapshot,
   getAuthSnapshot,
@@ -45,6 +45,8 @@ const INITIAL_SIGN_UP: SignUpData = {
 };
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
+  const t = useTranslations("Auth");
+  const common = useTranslations("Common");
   const router = useRouter();
   const auth = useSyncExternalStore(
     subscribeToAuth,
@@ -64,7 +66,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     <main className="auth-page" data-mode={mode}>
       <section className="auth-form-panel">
         <div className="auth-form-inner">
-          <Link href="/" className="auth-brand" aria-label="Hermes — на главную">
+          <Link href="/" className="auth-brand" aria-label={common("homeAria")}>
             <Image src="/yahya.svg" alt="" width={30} height={30} unoptimized />
             <span>Hermes</span>
           </Link>
@@ -87,11 +89,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         />
         <div className="auth-art-scrim" />
         <div className="auth-art-copy">
-          <span>{mode === "signin" ? "Продолжайте мысль" : "Начните с вопроса"}</span>
+          <span>{mode === "signin" ? t("continueThought") : t("startQuestion")}</span>
           <p>
             {mode === "signin"
-              ? "Ваши диалоги и идеи снова рядом."
-              : "Создайте пространство для работы, поиска и новых идей."}
+              ? t("signInArt")
+              : t("signUpArt")}
           </p>
         </div>
       </aside>
@@ -100,6 +102,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 }
 
 function SignInForm({ onSuccess }: { onSuccess: () => void }) {
+  const t = useTranslations("Auth");
+  const locale = useLocale();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -113,7 +117,7 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
       await signIn(email, password);
       onSuccess();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Не удалось войти");
+      setError(locale === "ru" && submitError instanceof Error ? submitError.message : t("signInError"));
     } finally {
       setSubmitting(false);
     }
@@ -122,12 +126,12 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div className="auth-form-content">
       <div className="auth-heading">
-        <div className="auth-kicker">Вход</div>
-        <h1>С возвращением</h1>
-        <p>Войдите, чтобы продолжить работу без гостевых ограничений.</p>
+        <div className="auth-kicker">{t("signInKicker")}</div>
+        <h1>{t("welcomeBack")}</h1>
+        <p>{t("signInDescription")}</p>
       </div>
       <form className="auth-form" onSubmit={submit}>
-        <AuthField label="Email" htmlFor="signin-email">
+        <AuthField label={t("email")} htmlFor="signin-email">
           <input
             id="signin-email"
             name="email"
@@ -139,7 +143,7 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
             required
           />
         </AuthField>
-        <AuthField label="Пароль" htmlFor="signin-password">
+        <AuthField label={t("password")} htmlFor="signin-password">
           <input
             id="signin-password"
             name="password"
@@ -147,23 +151,25 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Введите пароль"
+            placeholder={t("enterPassword")}
             required
           />
         </AuthField>
         {error ? <p className="auth-error" role="alert">{error}</p> : null}
         <button type="submit" className="auth-primary-button" disabled={submitting}>
-          {submitting ? "Входим…" : "Войти"}
+          {submitting ? t("signingIn") : t("signIn")}
         </button>
       </form>
       <p className="auth-switch">
-        Нет аккаунта? <Link href="/sign-up">Создать аккаунт</Link>
+        {t("noAccount")} <Link href="/sign-up">{t("createAccount")}</Link>
       </p>
     </div>
   );
 }
 
 function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
+  const t = useTranslations("Auth");
+  const locale = useLocale();
   const [step, setStep] = useState(1);
   const [data, setData] = useState(INITIAL_SIGN_UP);
   const [error, setError] = useState("");
@@ -175,14 +181,14 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
 
   function validateCurrentStep() {
     if (step === 1) {
-      if (!data.email.trim()) return "Введите email";
-      if (data.password.length < 10) return "Пароль должен содержать минимум 10 символов";
-      if (data.password !== data.confirmPassword) return "Пароли не совпадают";
+      if (!data.email.trim()) return t("emailRequired");
+      if (data.password.length < 10) return t("passwordLength");
+      if (data.password !== data.confirmPassword) return t("passwordMismatch");
     }
     if (step === 2) {
       const age = Number(data.age);
-      if (!data.firstName.trim() || !data.lastName.trim()) return "Заполните имя и фамилию";
-      if (!Number.isInteger(age) || age < 13 || age > 120) return "Укажите корректный возраст";
+      if (!data.firstName.trim() || !data.lastName.trim()) return t("nameRequired");
+      if (!Number.isInteger(age) || age < 13 || age > 120) return t("ageInvalid");
     }
     return "";
   }
@@ -204,7 +210,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
     if (!data.discovery || !data.goal || !data.frequency) {
-      setError("Ответьте на три коротких вопроса");
+      setError(t("surveyRequired"));
       return;
     }
     setError("");
@@ -225,7 +231,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
       onSuccess();
     } catch (submitError) {
       setError(
-        submitError instanceof Error ? submitError.message : "Не удалось создать аккаунт",
+        locale === "ru" && submitError instanceof Error ? submitError.message : t("signUpError"),
       );
     } finally {
       setSubmitting(false);
@@ -233,20 +239,20 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   const headings = [
-    ["Ваш аккаунт", "Начните с email и надёжного пароля."],
-    ["Расскажите о себе", "Это поможет сделать профиль понятным и живым."],
-    ["Последний шаг", "Три коротких ответа — и всё готово."],
+    [t("accountHeading"), t("accountDescription")],
+    [t("aboutHeading"), t("aboutDescription")],
+    [t("lastHeading"), t("lastDescription")],
   ] as const;
   const heading = headings[step - 1]!;
 
   return (
     <div className="auth-form-content auth-signup-content">
       <div className="auth-heading">
-        <div className="auth-kicker">Регистрация · шаг {step} из 3</div>
+        <div className="auth-kicker">{t("stepKicker", { step })}</div>
         <h1>{heading[0]}</h1>
         <p>{heading[1]}</p>
       </div>
-      <div className="auth-progress" aria-label={`Шаг ${step} из 3`}>
+      <div className="auth-progress" aria-label={t("stepAria", { step })}>
         {[1, 2, 3].map((item) => (
           <span key={item} data-active={item <= step} />
         ))}
@@ -254,7 +260,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
       <form className="auth-form" onSubmit={submit}>
         {step === 1 ? (
           <>
-            <AuthField label="Email" htmlFor="signup-email">
+            <AuthField label={t("email")} htmlFor="signup-email">
               <input
                 id="signup-email"
                 type="email"
@@ -266,25 +272,25 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
               />
             </AuthField>
             <div className="auth-field-row">
-              <AuthField label="Пароль" htmlFor="signup-password">
+              <AuthField label={t("password")} htmlFor="signup-password">
                 <input
                   id="signup-password"
                   type="password"
                   autoComplete="new-password"
                   value={data.password}
                   onChange={(event) => update("password", event.target.value)}
-                  placeholder="Минимум 10 символов"
+                  placeholder={t("passwordPlaceholder")}
                   required
                 />
               </AuthField>
-              <AuthField label="Повторите пароль" htmlFor="signup-confirm">
+              <AuthField label={t("confirmPassword")} htmlFor="signup-confirm">
                 <input
                   id="signup-confirm"
                   type="password"
                   autoComplete="new-password"
                   value={data.confirmPassword}
                   onChange={(event) => update("confirmPassword", event.target.value)}
-                  placeholder="Ещё раз"
+                  placeholder={t("againPlaceholder")}
                   required
                 />
               </AuthField>
@@ -295,28 +301,28 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
         {step === 2 ? (
           <>
             <div className="auth-field-row">
-              <AuthField label="Имя" htmlFor="signup-first-name">
+              <AuthField label={t("firstName")} htmlFor="signup-first-name">
                 <input
                   id="signup-first-name"
                   autoComplete="given-name"
                   value={data.firstName}
                   onChange={(event) => update("firstName", event.target.value)}
-                  placeholder="Имя"
+                  placeholder={t("firstName")}
                   required
                 />
               </AuthField>
-              <AuthField label="Фамилия" htmlFor="signup-last-name">
+              <AuthField label={t("lastName")} htmlFor="signup-last-name">
                 <input
                   id="signup-last-name"
                   autoComplete="family-name"
                   value={data.lastName}
                   onChange={(event) => update("lastName", event.target.value)}
-                  placeholder="Фамилия"
+                  placeholder={t("lastName")}
                   required
                 />
               </AuthField>
             </div>
-            <AuthField label="Возраст" htmlFor="signup-age">
+            <AuthField label={t("age")} htmlFor="signup-age">
               <input
                 id="signup-age"
                 type="number"
@@ -325,7 +331,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
                 max={120}
                 value={data.age}
                 onChange={(event) => update("age", event.target.value)}
-                placeholder="Например, 24"
+                placeholder={t("agePlaceholder")}
                 required
               />
             </AuthField>
@@ -336,24 +342,24 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
           <>
             <AuthSelect
               id="signup-discovery"
-              label="Откуда вы узнали о Hermes?"
+              label={t("discoveryLabel")}
               value={data.discovery}
               onChange={(value) => update("discovery", value)}
-              options={["Поиск", "Социальные сети", "От друзей", "Другое"]}
+              options={[t("discoverySearch"), t("discoverySocial"), t("discoveryFriends"), t("other")]}
             />
             <AuthSelect
               id="signup-goal"
-              label="Главная цель использования"
+              label={t("goalLabel")}
               value={data.goal}
               onChange={(value) => update("goal", value)}
-              options={["Работа", "Учёба", "Программирование", "Личные задачи"]}
+              options={[t("goalWork"), t("goalStudy"), t("goalProgramming"), t("goalPersonal")]}
             />
             <AuthSelect
               id="signup-frequency"
-              label="Как часто планируете пользоваться?"
+              label={t("frequencyLabel")}
               value={data.frequency}
               onChange={(value) => update("frequency", value)}
-              options={["Каждый день", "Несколько раз в неделю", "Иногда"]}
+              options={[t("frequencyDaily"), t("frequencyWeekly"), t("frequencySometimes")]}
             />
           </>
         ) : null}
@@ -369,16 +375,16 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
                 setStep((current) => current - 1);
               }}
             >
-              Назад
+              {t("back")}
             </button>
           ) : null}
           <button type="submit" className="auth-primary-button" disabled={submitting}>
-            {submitting ? "Создаём…" : step === 3 ? "Создать аккаунт" : "Продолжить"}
+            {submitting ? t("creating") : step === 3 ? t("createAccount") : t("continue")}
           </button>
         </div>
       </form>
       <p className="auth-switch">
-        Уже есть аккаунт? <Link href="/sign-in">Войти</Link>
+        {t("hasAccount")} <Link href="/sign-in">{t("signIn")}</Link>
       </p>
     </div>
   );
@@ -414,11 +420,12 @@ function AuthSelect({
   options: string[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("Auth");
   return (
     <label className="auth-field" htmlFor={id}>
       <span>{label}</span>
       <select id={id} value={value} onChange={(event) => onChange(event.target.value)} required>
-        <option value="" disabled>Выберите вариант</option>
+        <option value="" disabled>{t("selectOption")}</option>
         {options.map((option) => <option key={option}>{option}</option>)}
       </select>
     </label>

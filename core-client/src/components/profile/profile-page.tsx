@@ -1,15 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { LogoutConfirmDialog } from "@/components/auth/logout-confirm-dialog";
 import {
   ChevronLeftIcon,
   LogOutIcon,
   SettingsIcon,
   UserIcon,
 } from "@/components/icons";
+import { Link, useRouter } from "@/i18n/navigation";
 import {
   getAuthServerSnapshot,
   getAuthSnapshot,
@@ -19,9 +20,15 @@ import {
 } from "@/lib/auth-store";
 
 export function ProfilePage() {
+  const t = useTranslations("Profile");
+  const common = useTranslations("Common");
+  const sidebar = useTranslations("Sidebar");
+  const authText = useTranslations("Auth");
+  const locale = useLocale();
   const router = useRouter();
   const [error, setError] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
   const auth = useSyncExternalStore(
     subscribeToAuth,
     getAuthSnapshot,
@@ -37,10 +44,13 @@ export function ProfilePage() {
     setError("");
     try {
       await signOut();
+      setConfirmingLogout(false);
       router.replace("/");
     } catch (logoutError) {
       setError(
-        logoutError instanceof Error ? logoutError.message : "Не удалось выйти",
+        locale === "ru" && logoutError instanceof Error
+          ? logoutError.message
+          : t("logoutError"),
       );
       setLoggingOut(false);
     }
@@ -49,7 +59,7 @@ export function ProfilePage() {
   return (
     <main className="profile-page">
       <header className="profile-header">
-        <Link href="/" className="profile-back" aria-label="Вернуться в чат">
+        <Link href="/" className="profile-back" aria-label={common("backToChat")}>
           <ChevronLeftIcon className="size-5" />
         </Link>
         <Link href="/" className="profile-brand">
@@ -61,25 +71,22 @@ export function ProfilePage() {
       <section className="profile-content">
         {auth.status === "loading" ? (
           <div className="profile-loading" role="status">
-            Проверяем профиль…
+            {t("checking")}
           </div>
         ) : auth.status === "guest" ? (
           <div className="profile-guest">
             <div className="profile-avatar">
               <UserIcon />
             </div>
-            <div className="profile-kicker">Гостевой режим</div>
-            <h1>Вы вошли как гость</h1>
-            <p>
-              Зарегистрируйтесь, чтобы убрать недельный лимит и
-              синхронизировать текстовую историю.
-            </p>
+            <div className="profile-kicker">{t("guestMode")}</div>
+            <h1>{t("guestTitle")}</h1>
+            <p>{t("guestDescription")}</p>
             <div className="profile-actions">
               <Link href="/sign-up" className="profile-primary-action">
-                Создать аккаунт
+                {authText("createAccount")}
               </Link>
               <Link href="/sign-in" className="profile-secondary-action">
-                Войти
+                {authText("signIn")}
               </Link>
             </div>
           </div>
@@ -91,7 +98,7 @@ export function ProfilePage() {
                 {auth.user.lastName.slice(0, 1)}
               </div>
               <div>
-                <div className="profile-kicker">Ваш профиль</div>
+                <div className="profile-kicker">{t("yourProfile")}</div>
                 <h1>
                   {auth.user.firstName} {auth.user.lastName}
                 </h1>
@@ -100,21 +107,21 @@ export function ProfilePage() {
             </div>
             <dl className="profile-details">
               <div>
-                <dt>Имя</dt>
+                <dt>{t("firstName")}</dt>
                 <dd>{auth.user.firstName}</dd>
               </div>
               <div>
-                <dt>Фамилия</dt>
+                <dt>{t("lastName")}</dt>
                 <dd>{auth.user.lastName}</dd>
               </div>
               <div>
-                <dt>Возраст</dt>
+                <dt>{t("age")}</dt>
                 <dd>{auth.user.age}</dd>
               </div>
               <div>
-                <dt>В Hermes с</dt>
+                <dt>{t("memberSince")}</dt>
                 <dd>
-                  {new Intl.DateTimeFormat("ru", { dateStyle: "long" }).format(
+                  {new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(
                     new Date(auth.user.createdAt),
                   )}
                 </dd>
@@ -126,16 +133,19 @@ export function ProfilePage() {
                 className="profile-secondary-action profile-settings-action"
               >
                 <SettingsIcon className="size-[15px]" />
-                <span>Настройки</span>
+                <span>{common("settings")}</span>
               </Link>
               <button
                 type="button"
                 className="profile-logout"
-                onClick={logout}
+                onClick={() => {
+                  setError("");
+                  setConfirmingLogout(true);
+                }}
                 disabled={loggingOut}
               >
                 <LogOutIcon className="size-4" />
-                {loggingOut ? "Выходим…" : "Выйти"}
+                {loggingOut ? sidebar("loggingOut") : sidebar("logout")}
               </button>
             </div>
             {error ? (
@@ -146,6 +156,14 @@ export function ProfilePage() {
           </div>
         )}
       </section>
+      {confirmingLogout ? (
+        <LogoutConfirmDialog
+          busy={loggingOut}
+          error={error}
+          onCancel={() => setConfirmingLogout(false)}
+          onConfirm={() => void logout()}
+        />
+      ) : null}
     </main>
   );
 }

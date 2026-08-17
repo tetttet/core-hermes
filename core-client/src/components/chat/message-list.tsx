@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { findModel } from "@/config/models";
 import {
@@ -33,8 +34,17 @@ export function MessageList({
   progressMessage,
   user,
 }: MessageListProps) {
+  const t = useTranslations("Messages");
+  const locale = useLocale();
   const hasMessages = messages.length > 0;
-  const greeting = useWelcomeGreeting(user);
+  const greeting = useWelcomeGreeting(user, locale, t("defaultGreeting"));
+
+  function localizedTimestamp(timestamp: number) {
+    const formatted = formatMessageTimestamp(timestamp, locale);
+    if (formatted.relative === "today") return t("today", { time: formatted.value });
+    if (formatted.relative === "yesterday") return t("yesterday", { time: formatted.value });
+    return formatted.value;
+  }
 
   return (
     <>
@@ -60,7 +70,7 @@ export function MessageList({
                 disabled={isLoadingOlder}
                 onClick={onLoadOlder}
               >
-                {isLoadingOlder ? "Загружаем…" : "Показать ранние сообщения"}
+                {isLoadingOlder ? t("loading") : t("showEarlier")}
               </button>
             </div>
           ) : null}
@@ -81,16 +91,16 @@ export function MessageList({
                       </div>
                     ) : null}
                   </div>
-                  <div className="user-message-meta" aria-label="Действия с сообщением">
+                  <div className="user-message-meta" aria-label={t("messageActions")}>
                     {message.createdAt ? (
                       <time dateTime={new Date(message.createdAt).toISOString()}>
-                        {formatMessageTimestamp(message.createdAt)}
+                        {localizedTimestamp(message.createdAt)}
                       </time>
                     ) : null}
                     {message.content ? (
                       <CopyMessageButton
                         content={message.content}
-                        subject="сообщение"
+                        subject="message"
                       />
                     ) : null}
                   </div>
@@ -106,8 +116,8 @@ export function MessageList({
                   {message.status === "error" ? (
                     <p className="message-error mt-2 text-xs leading-5">
                       {message.content
-                        ? "Частичный ответ сохранён. Можно повторить запрос."
-                        : "Ответ не получен. Можно повторить запрос."}
+                        ? t("partial")
+                        : t("missing")}
                     </p>
                   ) : null}
                   {message.content && message.status !== "streaming" ? (
@@ -115,7 +125,7 @@ export function MessageList({
                       <CopyMessageButton content={message.content} />
                       {message.notice ? (
                         <span className="message-routing-notice">
-                          Резервная модель · {getRoutingModelName(message)}
+                          {t("fallbackModel", { model: getRoutingModelName(message, t("otherModel")) })}
                         </span>
                       ) : null}
                     </div>
@@ -135,23 +145,23 @@ export function MessageList({
   );
 }
 
-function useWelcomeGreeting(user?: GreetingUser) {
-  const [greeting, setGreeting] = useState("Чем я могу помочь?");
+function useWelcomeGreeting(user: GreetingUser | undefined, locale: string, fallback: string) {
+  const [greeting, setGreeting] = useState(fallback);
 
   useEffect(() => {
-    const update = () => setGreeting(getWelcomeGreeting(new Date(), user));
+    const update = () => setGreeting(getWelcomeGreeting(new Date(), user, locale));
     update();
     const interval = window.setInterval(update, 60_000);
     return () => window.clearInterval(interval);
-  }, [user]);
+  }, [locale, user]);
 
   return greeting;
 }
 
-function formatMessageTimestamp(timestamp: number) {
+function formatMessageTimestamp(timestamp: number, locale: string) {
   const date = new Date(timestamp);
   const now = new Date();
-  const time = new Intl.DateTimeFormat("ru-RU", {
+  const time = new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
@@ -165,23 +175,24 @@ function formatMessageTimestamp(timestamp: number) {
     (startOfToday.getTime() - startOfMessageDay.getTime()) / 86_400_000,
   );
 
-  if (dayDifference === 0) return `Сегодня, ${time}`;
-  if (dayDifference === 1) return `Вчера, ${time}`;
+  if (dayDifference === 0) return { relative: "today" as const, value: time };
+  if (dayDifference === 1) return { relative: "yesterday" as const, value: time };
 
-  const calendarDate = new Intl.DateTimeFormat("ru-RU", {
+  const calendarDate = new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",
     year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
   }).format(date);
-  return `${calendarDate}, ${time}`;
+  return { relative: null, value: `${calendarDate}, ${time}` };
 }
 
 function MessageHistorySkeleton() {
+  const t = useTranslations("Messages");
   return (
     <div
       className="chat-history-skeleton mx-auto w-full max-w-3xl px-4 pb-8 pt-8 sm:px-6 sm:pt-12"
       role="status"
-      aria-label="Загрузка истории чата"
+      aria-label={t("loadingHistory")}
     >
       <div className="chat-history-skeleton-row chat-history-skeleton-row-user">
         <span className="chat-history-skeleton-line chat-history-skeleton-line-short" />
@@ -192,30 +203,29 @@ function MessageHistorySkeleton() {
         <span className="chat-history-skeleton-line chat-history-skeleton-line-medium" />
         <span className="chat-history-skeleton-line chat-history-skeleton-line-short" />
       </div>
-      <span className="sr-only">Загрузка истории чата…</span>
+      <span className="sr-only">{t("loadingHistoryLong")}</span>
     </div>
   );
 }
 
-function getRoutingModelName(message: ChatMessage) {
+function getRoutingModelName(message: ChatMessage, fallback: string) {
   if (message.modelId) {
     const model = findModel(message.modelId);
     if (model) return model.title;
   }
 
-  return message.notice ?? "другая модель";
+  return message.notice ?? fallback;
 }
 
 function TypingIndicator({ progressMessage = "" }: { progressMessage?: string }) {
-  const label = progressMessage.toLocaleLowerCase().includes("отправ")
-    ? "Отправляю…"
-    : "Думаю…";
+  const t = useTranslations("Messages");
+  const label = progressMessage || t("thinking");
 
   return (
     <div
       className="flex items-center gap-2 px-1 py-2"
       role="status"
-      aria-label="Hermes думает"
+      aria-label={t("thinkingAria")}
     >
       <span className="typing-logo-wrap" aria-hidden="true">
         <Image

@@ -224,7 +224,7 @@ describe("ChatSidebar", () => {
     expect(onToggleFavoriteChat).toHaveBeenCalledWith("chat-1");
   });
 
-  it("opens profile, settings, and help links from the user block", () => {
+  it("opens profile, settings, language, and help items from the user block", () => {
     renderSidebar();
 
     expect(screen.queryByRole("menuitem", { name: "Настройки" })).toBeNull();
@@ -245,6 +245,39 @@ describe("ChatSidebar", () => {
     expect(
       screen.getByRole("menuitem", { name: "Получить помощь" }).getAttribute("href"),
     ).toBe("/help");
+    expect(screen.getByRole("menuitem", { name: "Язык" })).toBeDefined();
+
+    fireEvent.focus(screen.getByRole("menuitem", { name: "Язык" }));
+    expect(screen.getByRole("menu", { name: "Доступные языки" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "English" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Русский" })).toBeDefined();
+  });
+
+  it("switches language from the current route and closes the mobile sidebar", () => {
+    const onClose = vi.fn();
+    render(
+      <ChatSidebar
+        chats={chats}
+        activeChatId="chat-1"
+        isOpen
+        isBusy={false}
+        isCollapsed={false}
+        onClose={onClose}
+        onNewChat={vi.fn()}
+        onSelectChat={vi.fn()}
+        onDeleteChat={vi.fn()}
+        onRenameChat={vi.fn()}
+        onToggleFavoriteChat={vi.fn()}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
+    fireEvent.focus(screen.getByRole("menuitem", { name: "Язык" }));
+    expect(screen.getByRole("menuitem", { name: "Русский" }).getAttribute("aria-current"))
+      .toBe("true");
+    fireEvent.click(screen.getByRole("menuitem", { name: "English" }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("closes the user menu with Escape or an outside press", () => {

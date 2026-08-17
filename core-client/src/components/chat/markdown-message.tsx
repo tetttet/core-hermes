@@ -1,6 +1,7 @@
 "use client";
 
 import hljs from "highlight.js/lib/common";
+import { useTranslations } from "next-intl";
 import {
   isValidElement,
   memo,
@@ -134,7 +135,7 @@ const languageNames: Record<string, string> = {
   md: "Markdown",
   markdown: "Markdown",
   php: "PHP",
-  plaintext: "Текст",
+  plaintext: "Text",
   py: "Python",
   python: "Python",
   rb: "Ruby",
@@ -144,7 +145,7 @@ const languageNames: Record<string, string> = {
   sh: "Shell",
   shell: "Shell",
   sql: "SQL",
-  text: "Текст",
+  text: "Text",
   ts: "TypeScript",
   tsx: "TSX",
   typescript: "TypeScript",
@@ -182,6 +183,7 @@ type CodeBlockProps = {
 };
 
 const CodeBlock = memo(function CodeBlock({ code, language }: CodeBlockProps) {
+  const t = useTranslations("Copy");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightedCode = useMemo(() => {
@@ -215,14 +217,16 @@ const CodeBlock = memo(function CodeBlock({ code, language }: CodeBlockProps) {
   }
 
   const languageLabel = language
-    ? (languageNames[language] ?? language.toUpperCase())
-    : "Код";
+    ? (["plaintext", "text"].includes(language)
+        ? t("text")
+        : languageNames[language] ?? language.toUpperCase())
+    : t("code");
   const copyLabel =
     copyState === "copied"
-      ? "Скопировано"
+      ? t("copied")
       : copyState === "error"
-        ? "Не удалось"
-        : "Копировать";
+        ? t("failed")
+        : t("copy");
 
   return (
     <figure className="code-block">

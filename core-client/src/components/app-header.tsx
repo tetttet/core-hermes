@@ -1,15 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useState, ViewTransition } from "react";
 import { UserIcon } from "@/components/icons";
+import { Link } from "@/i18n/navigation";
 
 type AppHeaderProps = {
   activePage: "about";
 };
 
 export function AppHeader({ activePage }: AppHeaderProps) {
+  const t = useTranslations("AppHeader");
+  const common = useTranslations("Common");
   const [isCompact, setIsCompact] = useState(false);
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function AppHeader({ activePage }: AppHeaderProps) {
   return (
     <header className="generation-header" data-compact={isCompact}>
       <div className="generation-header-inner">
-        <Link href="/" className="generation-brand" aria-label="Hermes — открыть чат">
+        <Link href="/" className="generation-brand" aria-label={t("brandAria")}>
           <Image
             src="/yahya.svg"
             alt=""
@@ -56,22 +59,22 @@ export function AppHeader({ activePage }: AppHeaderProps) {
           <span>Hermes</span>
         </Link>
 
-        <nav className="generation-nav" aria-label="Основная навигация">
-          <Link href="/">Чат</Link>
+        <nav className="generation-nav" aria-label={t("navigation")}>
+          <Link href="/">{common("chat")}</Link>
           {activePage === "about" ? (
             <ViewTransition
               name="generation-nav-active"
               share={{ "header-section": "generation-nav-active", default: "none" }}
               default="none"
             >
-              <span aria-current="page">О нас</span>
+              <span aria-current="page">{common("about")}</span>
             </ViewTransition>
           ) : null}
         </nav>
 
         <Link href="/profile" className="generation-profile-link">
           <UserIcon className="size-[17px]" />
-          <span>Профиль</span>
+          <span>{common("profile")}</span>
         </Link>
       </div>
     </header>

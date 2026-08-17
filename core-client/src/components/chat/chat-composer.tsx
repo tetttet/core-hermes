@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   useEffect,
   useRef,
@@ -10,7 +10,9 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { Link } from "@/i18n/navigation";
 import {
+  GlobeIcon,
   PaperclipIcon,
   SendIcon,
   StopIcon,
@@ -36,19 +38,6 @@ const SUPPORTED_MEDIA_TYPES = [
   "video/mpeg",
   "video/quicktime",
   "video/webm",
-];
-
-const TEXT_PLACEHOLDERS = [
-  "Напишите сообщение Hermes",
-  "Задайте вопрос выбранной модели",
-  "Опишите задачу, которую нужно решить",
-];
-
-const MEDIA_PLACEHOLDERS = [
-  "Напишите сообщение Hermes",
-  "Перетащите фото или видео сюда",
-  "Прикрепите изображение для анализа",
-  "Спросите что-нибудь о файле",
 ];
 
 type ChatComposerProps = {
@@ -77,7 +66,7 @@ function readAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.onerror = () => reject(new Error("file-read-failed"));
     reader.readAsDataURL(file);
   });
 }
@@ -101,12 +90,12 @@ function waitForVideoEvent(
 
     const handleError = () => {
       cleanup();
-      reject(new Error("Браузер не смог декодировать видео"));
+      reject(new Error("video-decode-failed"));
     };
 
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error("Подготовка видео заняла слишком много времени"));
+      reject(new Error("video-prepare-timeout"));
     }, timeoutMs);
 
     video.addEventListener(eventName, handleEvent, { once: true });
@@ -139,7 +128,7 @@ async function extractVideoFrames(file: File) {
     }
 
     if (!Number.isFinite(video.duration) || video.duration <= 0) {
-      throw new Error("Не удалось определить длительность видео");
+      throw new Error("video-duration-unavailable");
     }
 
     const scale = Math.min(
@@ -152,7 +141,7 @@ async function extractVideoFrames(file: File) {
     canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
 
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Не удалось подготовить кадры видео");
+    if (!context) throw new Error("video-frame-context-unavailable");
 
     const lastTime = Math.max(0, video.duration - 0.05);
     const times = Array.from(
@@ -181,10 +170,13 @@ function hasDraggedFiles(dataTransfer: DataTransfer | null) {
 }
 
 function useAnimatedPlaceholder(acceptsMedia: boolean, paused: boolean) {
+  const t = useTranslations("Composer");
   const [placeholder, setPlaceholder] = useState("");
 
   useEffect(() => {
-    const phrases = acceptsMedia ? MEDIA_PLACEHOLDERS : TEXT_PLACEHOLDERS;
+    const phrases = acceptsMedia
+      ? [t("attachmentPlaceholder1"), t("attachmentPlaceholder2"), t("attachmentPlaceholder3"), t("attachmentPlaceholder4")]
+      : [t("placeholder1"), t("placeholder2"), t("placeholder3")];
 
     if (paused) {
       const timeoutId = window.setTimeout(() => {
@@ -254,7 +246,7 @@ function useAnimatedPlaceholder(acceptsMedia: boolean, paused: boolean) {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [acceptsMedia, paused]);
+  }, [acceptsMedia, paused, t]);
 
   return placeholder;
 }
@@ -266,6 +258,7 @@ function AttachmentCard({
   onRemove,
   onPreview,
 }: AttachmentCardProps) {
+  const t = useTranslations("Composer");
   const isVideo = attachment.kind === "video";
 
   return (
@@ -278,8 +271,8 @@ function AttachmentCard({
         type="button"
         disabled={disabled || isRemoving}
         onClick={() => onPreview(attachment)}
-        aria-label={`Открыть ${attachment.name}`}
-        title="Открыть файл"
+        aria-label={t("openAttachment", { name: attachment.name })}
+        title={t("openFile")}
         className="relative block size-full overflow-hidden bg-black/5 outline-none disabled:cursor-not-allowed"
       >
         {isVideo ? (
@@ -313,8 +306,8 @@ function AttachmentCard({
         type="button"
         disabled={disabled || isRemoving}
         onClick={() => onRemove(attachment.id)}
-        aria-label={`Удалить ${attachment.name}`}
-        title="Удалить файл"
+        aria-label={t("removeAttachment", { name: attachment.name })}
+        title={t("deleteFile")}
         className="attachment-remove absolute right-1 top-1 z-10 flex size-6 items-center justify-center rounded-full text-white shadow-sm backdrop-blur-md transition disabled:cursor-not-allowed disabled:opacity-40"
       >
         <XIcon className="size-3.5" />
@@ -330,18 +323,19 @@ function AttachmentViewer({
   attachment: ChatAttachment;
   onClose: () => void;
 }) {
+  const t = useTranslations("Composer");
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Просмотр ${attachment.name}`}
+      aria-label={t("preview", { name: attachment.name })}
       className="attachment-viewer fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-8"
       onClick={onClose}
     >
       <button
         type="button"
         onClick={onClose}
-        aria-label="Закрыть просмотр"
+        aria-label={t("closePreview")}
         className="attachment-viewer-close absolute right-4 top-4 z-10 flex size-10 items-center justify-center rounded-full text-white backdrop-blur-md transition hover:scale-105 sm:right-6 sm:top-6"
       >
         <XIcon className="size-5" />
@@ -383,6 +377,7 @@ export function ChatComposer({
   isLoading,
   disabled = false,
 }: ChatComposerProps) {
+  const t = useTranslations("Composer");
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [removingAttachmentIds, setRemovingAttachmentIds] = useState<string[]>(
@@ -556,7 +551,7 @@ export function ChatComposer({
 
     if (!acceptsMedia) {
       if (modelLocked) {
-        setFileError("Выбранная модель не поддерживает изображения и видео");
+        setFileError(t("unsupportedMedia"));
         return;
       }
 
@@ -565,7 +560,7 @@ export function ChatComposer({
     }
 
     if (attachments.length + files.length > MAX_ATTACHMENTS) {
-      setFileError(`Можно прикрепить максимум ${MAX_ATTACHMENTS} файла`);
+      setFileError(t("maxFiles", { count: MAX_ATTACHMENTS }));
       return;
     }
 
@@ -581,8 +576,8 @@ export function ChatComposer({
     if (supportedFiles.length !== files.length) {
       setFileError(
         attachmentModel.supportsVideo
-          ? "Поддерживаются только изображения и видео"
-          : "Выбранная модель поддерживает только изображения",
+          ? t("imagesAndVideoOnly")
+          : t("imagesOnly"),
       );
       return;
     }
@@ -597,7 +592,7 @@ export function ChatComposer({
     );
 
     if (currentTotalSize + newFilesSize > MAX_TOTAL_SIZE) {
-      setFileError("Общий размер вложений — не больше 3 МБ");
+      setFileError(t("totalSize"));
       return;
     }
 
@@ -636,13 +631,11 @@ export function ChatComposer({
 
       if (hasVideoFrameWarning) {
         setFileError(
-          "Не удалось извлечь кадры одного из видео; оно будет отправлено в исходном формате.",
+          t("videoFallback"),
         );
       }
-    } catch (error) {
-      setFileError(
-        error instanceof Error ? error.message : "Не удалось добавить файл",
-      );
+    } catch {
+      setFileError(t("addFileError"));
     } finally {
       setIsProcessingFiles(false);
     }
@@ -730,7 +723,7 @@ export function ChatComposer({
             autoFocus
             disabled={disabled}
             placeholder=""
-            aria-label="Сообщение"
+            aria-label={t("message")}
             onKeyDown={handleKeyDown}
             onChange={(event) => {
               setValue(event.target.value);
@@ -764,16 +757,16 @@ export function ChatComposer({
             <button
               type="button"
               disabled={controlsDisabled}
-              aria-label="Интернет-поиск"
+              aria-label={t("webSearch")}
               aria-pressed={webSearchEnabled}
-              title={webSearchEnabled ? "Выключить интернет-поиск" : "Включить интернет-поиск"}
+              title={webSearchEnabled ? t("disableWebSearch") : t("enableWebSearch")}
               onClick={() => setWebSearchEnabled((enabled) => !enabled)}
               className={`composer-internet flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-2 text-xs font-medium transition duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
                 webSearchEnabled ? "composer-internet--active" : ""
               }`}
             >
-              <span aria-hidden="true">🌐</span>
-              <span>Интернет</span>
+              <GlobeIcon className="size-4" />
+              <span>{t("internet")}</span>
             </button>
           </div>
 
@@ -792,8 +785,8 @@ export function ChatComposer({
                   type="button"
                   disabled={controlsDisabled || isProcessingFiles}
                   onClick={() => fileInputRef.current?.click()}
-                  aria-label="Прикрепить фото или видео"
-                  title="Прикрепить фото или видео"
+                  aria-label={t("attach")}
+                  title={t("attach")}
                   className="composer-tool flex size-8 shrink-0 items-center justify-center rounded-xl transition duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
                 >
                   {isProcessingFiles ? (
@@ -812,8 +805,8 @@ export function ChatComposer({
               <button
                 type="button"
                 onClick={onStop}
-                aria-label="Остановить ответ"
-                title="Остановить ответ"
+                aria-label={t("stop")}
+                title={t("stop")}
                 className="composer-submit flex size-8 shrink-0 items-center justify-center rounded-xl transition duration-200 hover:scale-105 active:scale-95"
               >
                 <StopIcon className="size-[18px]" />
@@ -822,7 +815,7 @@ export function ChatComposer({
               <button
                 type="submit"
                 disabled={!canSend}
-                aria-label="Отправить"
+                aria-label={t("send")}
                 className="composer-submit flex size-8 shrink-0 items-center justify-center rounded-xl transition duration-200 enabled:hover:-translate-y-0.5 enabled:hover:scale-105 enabled:active:translate-y-0 enabled:active:scale-95 disabled:cursor-not-allowed"
               >
                 <SendIcon className="size-[18px] translate-x-[-1px]" />
@@ -840,9 +833,9 @@ export function ChatComposer({
                   <div className="drag-icon mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl">
                     <PaperclipIcon className="size-5" />
                   </div>
-                  <p className="text-base font-semibold">Отпустите файл</p>
+                  <p className="text-base font-semibold">{t("dropFile")}</p>
                   <p className="mt-1 text-xs opacity-60">
-                    Он прикрепится к сообщению · до {MAX_ATTACHMENTS} файлов
+                    {t("dropHint", { count: MAX_ATTACHMENTS })}
                   </p>
                 </div>
               </div>
@@ -863,14 +856,14 @@ export function ChatComposer({
 
       <p className="composer-hint mt-2 text-center text-[11px]">
         {modelLocked
-          ? "Модель закреплена за этим чатом"
+          ? t("modelLocked")
           : acceptsMedia
-            ? "Выберите модель или перетащите фото и видео в окно"
-            : "Прикрепите файл — для него автоматически включится Auto"}
+            ? t("chooseOrDrop")
+            : t("autoForFile")}
       </p>
       <p className="composer-disclaimer mt-1 text-center text-[11px]">
         <Link href="/help" className="composer-disclaimer-link">
-          Hermes — ИИ и может ошибаться. Проверяйте важную информацию.
+          {t("disclaimer")}
         </Link>
       </p>
 

@@ -7,15 +7,20 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  useTransition,
 } from "react";
 import type { RefObject } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
+import { LogoutConfirmDialog } from "@/components/auth/logout-confirm-dialog";
 import {
   ChatBubbleIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
+  GlobeIcon,
   InfoIcon,
+  LogOutIcon,
   MoreHorizontalIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
@@ -28,10 +33,12 @@ import {
   XIcon,
 } from "@/components/icons";
 import { Tooltip } from "@/components/tooltip";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   getAuthServerSnapshot,
   getAuthSnapshot,
   initializeAuth,
+  signOut,
   subscribeToAuth,
 } from "@/lib/auth-store";
 import type { ChatThread } from "@/types/chat";
@@ -47,6 +54,8 @@ export function DeleteConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations("Sidebar");
+  const common = useTranslations("Common");
   const titleId = useId();
   const descriptionId = useId();
 
@@ -69,17 +78,17 @@ export function DeleteConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className="confirm-title text-base font-semibold text-foreground mb-1">
-          Удалить этот чат?
+          {t("deleteChatTitle")}
         </h2>
         <p id={descriptionId} className="confirm-desc text-sm text-muted-soft mb-5">
-          Вся история этого чата будет удалена. Это действие нельзя отменить.
+          {t("deleteChatDescription")}
         </p>
         <div className="confirm-actions flex justify-end gap-2">
           <button type="button" className="confirm-btn confirm-btn-cancel px-4" onClick={onCancel}>
-            Отмена
+            {common("cancel")}
           </button>
           <button type="button" className="confirm-btn confirm-btn-delete px-4" onClick={onConfirm}>
-            Удалить
+            {common("delete")}
           </button>
         </div>
       </div>
@@ -110,6 +119,8 @@ export function ChatContextMenu({
   isFavorite: boolean;
   onClose: () => void;
 }) {
+  const t = useTranslations("Sidebar");
+  const common = useTranslations("Common");
   const [position, setPosition] = useState({ left: 8, top: 8 });
 
   useEffect(() => {
@@ -163,7 +174,7 @@ export function ChatContextMenu({
         }}
       >
         <StarIcon className="size-3.5" filled={isFavorite} />
-        {isFavorite ? "Убрать из избранного" : "В избранное"}
+        {isFavorite ? t("removeFavorite") : t("addFavorite")}
       </button>
       <button
         type="button"
@@ -175,7 +186,7 @@ export function ChatContextMenu({
         }}
       >
         <PencilIcon className="size-3.5" />
-        Переименовать
+        {t("rename")}
       </button>
       <button
         type="button"
@@ -187,7 +198,7 @@ export function ChatContextMenu({
         }}
       >
         <TrashIcon className="size-3.5" />
-        Удалить
+        {common("delete")}
       </button>
     </div>,
     document.body,
@@ -217,6 +228,7 @@ function ChatItem({
   onRename: (newTitle: string) => void;
   onToggleFavorite: () => void;
 }) {
+  const t = useTranslations("Sidebar");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(chat.title);
@@ -335,7 +347,7 @@ function ChatItem({
             ref={dotsRef}
             type="button"
             className="sidebar-dots-btn"
-            aria-label={`Действия с чатом «${chat.title}»`}
+            aria-label={t("chatActions", { title: chat.title })}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls={menuOpen ? menuId : undefined}
@@ -370,11 +382,12 @@ function ChatItem({
 /* ------------------------------------------------------------------ */
 
 function ChatListSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
+  const t = useTranslations("Sidebar");
   return (
     <div
       className="sidebar-chat-skeleton-list"
       role="status"
-      aria-label="Загрузка чатов"
+      aria-label={t("loadingChats")}
     >
       {Array.from({ length: 6 }, (_, index) => (
         <div
@@ -436,6 +449,12 @@ export function ChatSidebar({
   onRetryChats,
   onToggleCollapse,
 }: ChatSidebarProps) {
+  const t = useTranslations("Sidebar");
+  const common = useTranslations("Common");
+  const locale = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isLocalePending, startLocaleTransition] = useTransition();
   const auth = useSyncExternalStore(
     subscribeToAuth,
     getAuthSnapshot,
@@ -453,8 +472,13 @@ export function ChatSidebar({
     .join(":");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const userMenuRef = useRef<HTMLDivElement>(null);
   const userMenuId = useId();
+  const languageMenuId = useId();
   const motionItemsRef = useRef(new Map<string, HTMLDivElement>());
   const previousPositionsRef = useRef(new Map<string, number>());
   const chatToDelete = confirmDeleteId
@@ -471,11 +495,15 @@ export function ChatSidebar({
     function handlePointerDown(event: PointerEvent) {
       if (!userMenuRef.current?.contains(event.target as Node)) {
         setUserMenuOpen(false);
+        setLanguageMenuOpen(false);
       }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setUserMenuOpen(false);
+      if (event.key === "Escape") {
+        setUserMenuOpen(false);
+        setLanguageMenuOpen(false);
+      }
     }
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -488,7 +516,34 @@ export function ChatSidebar({
 
   function closeUserMenu() {
     setUserMenuOpen(false);
+    setLanguageMenuOpen(false);
     onClose();
+  }
+
+  async function logout() {
+    setLoggingOut(true);
+    setLogoutError("");
+
+    try {
+      await signOut();
+      setConfirmingLogout(false);
+      closeUserMenu();
+    } catch (error) {
+      setLogoutError(
+        locale === "ru" && error instanceof Error ? error.message : t("logoutError"),
+      );
+      setLoggingOut(false);
+    }
+  }
+
+  function switchLocale(nextLocale: "en" | "ru") {
+    if (nextLocale === locale || isLocalePending) return;
+    setLanguageMenuOpen(false);
+    setUserMenuOpen(false);
+    onClose();
+    startLocaleTransition(() => {
+      router.replace(pathname, { locale: nextLocale });
+    });
   }
 
   useLayoutEffect(() => {
@@ -532,7 +587,7 @@ export function ChatSidebar({
     <>
       <button
         type="button"
-        aria-label="Закрыть меню"
+        aria-label={t("closeMenu")}
         aria-hidden={!isOpen}
         tabIndex={isOpen ? 0 : -1}
         onClick={onClose}
@@ -550,7 +605,7 @@ export function ChatSidebar({
           <div className="sidebar-brand">
             <Image
               src="/yahya.svg"
-              alt="Yahya logo"
+              alt=""
               width={28}
               height={28}
               unoptimized
@@ -559,13 +614,13 @@ export function ChatSidebar({
             <span className="sidebar-brand-name">Hermes</span>
           </div>
           <Tooltip
-            content={isCollapsed ? "Раскрыть панель" : "Свернуть панель"}
+            content={isCollapsed ? t("expand") : t("collapse")}
             disabled={!isCollapsed}
             className={isCollapsed ? "mx-auto" : "ml-auto"}
           >
             <button
               type="button"
-              aria-label={isCollapsed ? "Раскрыть панель" : "Свернуть панель"}
+              aria-label={isCollapsed ? t("expand") : t("collapse")}
               onClick={onToggleCollapse}
               className="sidebar-collapse-btn"
             >
@@ -579,7 +634,7 @@ export function ChatSidebar({
           {/* Mobile close button */}
           <button
             type="button"
-            aria-label="Закрыть меню"
+            aria-label={t("closeMenu")}
             onClick={onClose}
             className="sidebar-icon-button sidebar-mobile-close flex size-8 items-center justify-center rounded-lg lg:hidden"
           >
@@ -588,7 +643,7 @@ export function ChatSidebar({
         </div>
 
         {/* New chat button */}
-        <Tooltip content="Новый чат" disabled={!isCollapsed} className="mt-2 w-full">
+        <Tooltip content={t("newChat")} disabled={!isCollapsed} className="mt-2 w-full">
           <button
             type="button"
             onClick={onNewChat}
@@ -596,30 +651,30 @@ export function ChatSidebar({
             className={`sidebar-new-chat ${isCollapsed ? "sidebar-new-chat-collapsed" : ""}`}
           >
             <PlusIcon className="size-[18px] shrink-0" />
-            <span className="sidebar-button-text">Новый чат</span>
+            <span className="sidebar-button-text">{t("newChat")}</span>
           </button>
         </Tooltip>
 
-        <Tooltip content="О нас" disabled={!isCollapsed} className="mt-0.5 w-full">
+        <Tooltip content={common("about")} disabled={!isCollapsed} className="mt-0.5 w-full">
           <Link
             href="/about"
             onClick={onClose}
             className={`sidebar-new-chat sidebar-about ${isCollapsed ? "sidebar-new-chat-collapsed" : ""}`}
           >
             <InfoIcon className="size-[18px] shrink-0" />
-            <span className="sidebar-button-text">О нас</span>
+            <span className="sidebar-button-text">{common("about")}</span>
           </Link>
         </Tooltip>
 
         {/* Chat list */}
         <nav
           className={`sidebar-chat-list mt-4 min-h-0 flex-1 overflow-y-auto ${isCollapsed ? "sidebar-nav-collapsed" : ""}`}
-          aria-label="Чаты"
+          aria-label={t("chats")}
           aria-busy={isLoadingChats || isLoadingMoreChats}
         >
           {favoriteChats.length > 0 ? (
             <div className="sidebar-label sidebar-chat-section-label px-2">
-              Избранные
+              {t("favorites")}
             </div>
           ) : null}
           {favoriteChats.map((chat) => (
@@ -645,7 +700,7 @@ export function ChatSidebar({
           ))}
 
           <div className="sidebar-label sidebar-chat-section-label px-2">
-            Недавние
+            {t("recent")}
           </div>
           {isLoadingChats && recentChats.length === 0 && favoriteChats.length === 0 ? (
             <ChatListSkeleton isCollapsed={isCollapsed} />
@@ -658,13 +713,13 @@ export function ChatSidebar({
                   className="sidebar-load-more"
                   onClick={onRetryChats}
                 >
-                  Повторить
+                  {common("retry")}
                 </button>
               ) : null}
             </div>
           ) : recentChats.length === 0 && favoriteChats.length === 0 ? (
             <p className="sidebar-muted px-2 py-3 text-sm leading-5">
-              Здесь появятся ваши диалоги
+              {t("empty")}
             </p>
           ) : (
             recentChats.map((chat) => (
@@ -697,7 +752,7 @@ export function ChatSidebar({
               disabled={isLoadingMoreChats}
               onClick={onLoadMoreChats}
             >
-              {isLoadingMoreChats ? "Загружаем…" : "Показать ещё"}
+              {isLoadingMoreChats ? t("loadingMore") : t("showMore")}
             </button>
           ) : null}
         </nav>
@@ -705,8 +760,8 @@ export function ChatSidebar({
         {/* Footer */}
         <p className="sidebar-footer px-2 pb-2 pt-3 text-[11px] leading-4">
           {auth.status === "authenticated"
-            ? "Текстовая история синхронизируется"
-            : "Гостевой лимит: 5 запросов в неделю"}
+            ? t("syncedHistory")
+            : t("guestLimit")}
         </p>
 
         {/* User menu */}
@@ -715,9 +770,74 @@ export function ChatSidebar({
             id={userMenuId}
             className="sidebar-account-menu"
             role="menu"
+            aria-label={t("userMenu")}
             aria-hidden={!userMenuOpen}
             data-open={userMenuOpen}
           >
+            <div
+              className="sidebar-account-language"
+              data-open={languageMenuOpen}
+              onMouseEnter={() => setLanguageMenuOpen(true)}
+              onMouseLeave={() => setLanguageMenuOpen(false)}
+              onFocus={() => setLanguageMenuOpen(true)}
+              onBlur={(event) => {
+                if (
+                  !event.currentTarget.contains(
+                    event.relatedTarget as Node | null,
+                  )
+                ) {
+                  setLanguageMenuOpen(false);
+                }
+              }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={userMenuOpen ? 0 : -1}
+                className="sidebar-account-menu-item"
+                aria-haspopup="menu"
+                aria-expanded={languageMenuOpen}
+                aria-controls={languageMenuId}
+                aria-label={t("language")}
+                onClick={() => setLanguageMenuOpen(true)}
+              >
+                <GlobeIcon className="size-[17px]" />
+                <span>{t("language")}</span>
+                <ChevronRightIcon className="sidebar-language-chevron size-4" />
+              </button>
+              <div
+                id={languageMenuId}
+                className="sidebar-language-menu"
+                role="menu"
+                aria-label={t("availableLanguages")}
+                aria-hidden={!languageMenuOpen}
+                data-open={languageMenuOpen}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabIndex={userMenuOpen && languageMenuOpen ? 0 : -1}
+                  className="sidebar-language-option"
+                  aria-current={locale === "en" ? "true" : undefined}
+                  disabled={isLocalePending}
+                  onClick={() => switchLocale("en")}
+                >
+                  {t("english")}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabIndex={userMenuOpen && languageMenuOpen ? 0 : -1}
+                  className="sidebar-language-option"
+                  aria-current={locale === "ru" ? "true" : undefined}
+                  disabled={isLocalePending}
+                  onClick={() => switchLocale("ru")}
+                >
+                  {t("russian")}
+                </button>
+              </div>
+            </div>
+            <div className="sidebar-account-menu-divider" />
             <Link
               href="/profile"
               role="menuitem"
@@ -726,7 +846,7 @@ export function ChatSidebar({
               onClick={closeUserMenu}
             >
               <UserIcon className="size-[17px]" />
-              <span>Профиль</span>
+              <span>{common("profile")}</span>
             </Link>
             <Link
               href="/settings"
@@ -736,7 +856,7 @@ export function ChatSidebar({
               onClick={closeUserMenu}
             >
               <SettingsIcon className="size-[17px]" />
-              <span>Настройки</span>
+              <span>{common("settings")}</span>
             </Link>
             <div className="sidebar-account-menu-divider" />
             <Link
@@ -747,12 +867,35 @@ export function ChatSidebar({
               onClick={closeUserMenu}
             >
               <InfoIcon className="size-[17px]" />
-              <span>Получить помощь</span>
+              <span>{t("help")}</span>
             </Link>
+            {auth.status === "authenticated" ? (
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={userMenuOpen ? 0 : -1}
+                className="sidebar-account-menu-item sidebar-account-menu-logout"
+                onClick={() => {
+                  setLogoutError("");
+                  setUserMenuOpen(false);
+                  setLanguageMenuOpen(false);
+                  setConfirmingLogout(true);
+                }}
+                disabled={loggingOut}
+              >
+                <LogOutIcon className="size-[17px]" />
+                <span>{loggingOut ? t("loggingOut") : t("logout")}</span>
+              </button>
+            ) : null}
+            {logoutError ? (
+              <p className="sidebar-account-menu-error" role="alert">
+                {logoutError}
+              </p>
+            ) : null}
           </div>
 
           <Tooltip
-            content={auth.status === "loading" ? "Загрузка профиля" : "Меню пользователя"}
+            content={auth.status === "loading" ? t("loadingProfile") : t("userMenu")}
             disabled={!isCollapsed || userMenuOpen}
             className="w-full"
           >
@@ -761,17 +904,20 @@ export function ChatSidebar({
               className={`sidebar-profile-link ${isCollapsed ? "sidebar-profile-collapsed" : ""}`}
               aria-label={
                 auth.status === "loading"
-                  ? "Загрузка профиля"
+                  ? t("loadingProfile")
                   : userMenuOpen
-                    ? "Закрыть меню пользователя"
-                    : "Открыть меню пользователя"
+                    ? t("closeUserMenu")
+                    : t("openUserMenu")
               }
               aria-busy={auth.status === "loading"}
               aria-haspopup="menu"
               aria-expanded={userMenuOpen}
               aria-controls={userMenuId}
               disabled={auth.status === "loading"}
-              onClick={() => setUserMenuOpen((open) => !open)}
+              onClick={() => {
+                if (userMenuOpen) setLanguageMenuOpen(false);
+                setUserMenuOpen((open) => !open);
+              }}
             >
               {auth.status === "loading" ? (
                 <>
@@ -805,12 +951,12 @@ export function ChatSidebar({
                     <strong>
                       {auth.status === "authenticated"
                         ? `${auth.user.firstName} ${auth.user.lastName}`
-                        : "Гость"}
+                        : t("guest")}
                     </strong>
                     <small>
                       {auth.status === "authenticated"
                         ? auth.user.email
-                        : "Войти или зарегистрироваться"}
+                        : t("signInOrCreate")}
                     </small>
                   </span>
                   <ChevronDownIcon className="sidebar-profile-chevron size-4" data-open={userMenuOpen} />
@@ -831,6 +977,14 @@ export function ChatSidebar({
           onCancel={() => setConfirmDeleteId(null)}
         />
       )}
+      {confirmingLogout ? (
+        <LogoutConfirmDialog
+          busy={loggingOut}
+          error={logoutError}
+          onCancel={() => setConfirmingLogout(false)}
+          onConfirm={() => void logout()}
+        />
+      ) : null}
     </>
   );
 }

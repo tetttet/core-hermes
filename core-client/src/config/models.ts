@@ -57,7 +57,7 @@ export const MODEL_LICENSES = {
 // Локальный ID: он никогда не отправляется в OpenRouter как имя модели.
 export const AUTO_MODEL_ID = "hermes/auto-vision-safe";
 
-// В Auto используем только модели, которые прошли реальную проверку API.
+// В режиме «Авто» используем только модели, которые прошли реальную проверку API.
 export const VISION_FALLBACK_MODEL_IDS = [
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
@@ -82,7 +82,7 @@ export function getModelReasoning(modelId: string) {
 export const MODEL_CATALOG = [
   {
     id: AUTO_MODEL_ID,
-    title: "Auto · Vision Safe",
+    title: "Авто · Безопасный выбор",
     provider: "Hermes",
     description:
       "Безопасно выбирает только мультимодальные модели и переключается на резервную при временном сбое.",

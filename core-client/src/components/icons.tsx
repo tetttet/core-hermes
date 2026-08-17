@@ -41,6 +41,20 @@ export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="m8 5 5 5-5 5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function ArrowUpIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -95,6 +109,29 @@ export function PaperclipIcon(props: SVGProps<SVGSVGElement>) {
         strokeWidth="1.7"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+export function GlobeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>
+      <circle
+        cx="10"
+        cy="10"
+        r="7.25"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <ellipse
+        cx="10"
+        cy="10"
+        rx="3.25"
+        ry="7.25"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path d="M2.75 10h14.5" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   );
 }

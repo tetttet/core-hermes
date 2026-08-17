@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import {
   useEffect,
   useMemo,
@@ -10,6 +10,7 @@ import {
   type ComponentType,
   type SVGProps,
 } from "react";
+import { Link } from "@/i18n/navigation";
 import {
   CheckIcon,
   ChatBubbleIcon,
@@ -23,7 +24,8 @@ import {
   SunIcon,
   TrashIcon,
 } from "@/components/icons";
-import { MODELS, getModelCapabilityLabel } from "@/config/models";
+import { AUTO_MODEL_ID, MODELS } from "@/config/models";
+import { getModelCapabilityKey, getModelDescriptionKey } from "@/config/model-messages";
 import {
   getChatServerSnapshot,
   getChatSnapshot,
@@ -59,40 +61,42 @@ type SettingsPageProps = {
 type TabId = "appearance" | "data" | "models" | "about";
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
-const tabs: Array<{ id: TabId; label: string; icon: IconComponent }> = [
-  { id: "appearance", label: "Внешний вид", icon: SunIcon },
-  { id: "data", label: "Данные", icon: DatabaseIcon },
-  { id: "models", label: "Модели", icon: ModelsIcon },
-  { id: "about", label: "О приложении", icon: InfoIcon },
+const tabs: Array<{ id: TabId; labelKey: string; icon: IconComponent }> = [
+  { id: "appearance", labelKey: "appearanceTab", icon: SunIcon },
+  { id: "data", labelKey: "dataTab", icon: DatabaseIcon },
+  { id: "models", labelKey: "modelsTab", icon: ModelsIcon },
+  { id: "about", labelKey: "aboutTab", icon: InfoIcon },
 ];
 
 const themes: Array<{
   id: ThemePreference;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   icon: IconComponent;
 }> = [
   {
     id: "system",
-    label: "Системная",
-    description: "Как на устройстве",
+    labelKey: "systemTheme",
+    descriptionKey: "systemThemeDescription",
     icon: MonitorIcon,
   },
   {
     id: "light",
-    label: "Светлая",
-    description: "Всегда светлая",
+    labelKey: "lightTheme",
+    descriptionKey: "lightThemeDescription",
     icon: SunIcon,
   },
   {
     id: "dark",
-    label: "Тёмная",
-    description: "Всегда тёмная",
+    labelKey: "darkTheme",
+    descriptionKey: "darkThemeDescription",
     icon: MoonIcon,
   },
 ];
 
 export function SettingsPage({ version, initialTab }: SettingsPageProps) {
+  const t = useTranslations("Settings");
+  const common = useTranslations("Common");
   const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? "appearance");
   const theme = useSyncExternalStore(
     subscribeToTheme,
@@ -104,17 +108,17 @@ export function SettingsPage({ version, initialTab }: SettingsPageProps) {
     <main className="settings-page">
       <div className="settings-container">
         <header className="settings-header">
-          <Link href="/" className="settings-back" aria-label="Вернуться в чат">
+          <Link href="/" className="settings-back" aria-label={common("backToChat")}>
             <ChevronLeftIcon className="size-5" />
           </Link>
           <div>
             <div className="settings-brand">Hermes</div>
-            <div className="settings-breadcrumb">Настройки</div>
+            <div className="settings-breadcrumb">{t("title")}</div>
           </div>
         </header>
 
         <div className="settings-layout">
-          <nav className="settings-tabs" aria-label="Разделы настроек">
+          <nav className="settings-tabs" aria-label={t("sectionsAria")}>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -127,7 +131,7 @@ export function SettingsPage({ version, initialTab }: SettingsPageProps) {
                   onClick={() => setActiveTab(tab.id)}
                 >
                   <Icon className="size-[18px]" />
-                  <span>{tab.label}</span>
+                  <span>{t(tab.labelKey)}</span>
                 </button>
               );
             })}
@@ -165,18 +169,19 @@ function SettingsTitle({
 }
 
 function AppearanceSettings({ theme }: { theme: ThemePreference }) {
+  const t = useTranslations("Settings");
   return (
     <>
       <SettingsTitle
-        title="Внешний вид"
-        description="Настройте оформление Hermes под себя. Изменения сохраняются только на этом устройстве."
+        title={t("appearanceTitle")}
+        description={t("appearanceDescription")}
       />
       <section className="settings-section settings-preference-row">
         <div className="settings-preference-copy">
-          <h2>Цветовая схема</h2>
-          <p>Выберите светлое, тёмное или системное оформление.</p>
+          <h2>{t("colorScheme")}</h2>
+          <p>{t("colorSchemeDescription")}</p>
         </div>
-        <div className="theme-options" role="group" aria-label="Цветовая схема">
+        <div className="theme-options" role="group" aria-label={t("colorScheme")}>
           {themes.map((option) => {
             const Icon = option.icon;
             const isActive = theme === option.id;
@@ -187,11 +192,11 @@ function AppearanceSettings({ theme }: { theme: ThemePreference }) {
                 className="theme-option"
                 data-active={isActive}
                 aria-pressed={isActive}
-                title={option.description}
+                title={t(option.descriptionKey)}
                 onClick={() => saveThemePreference(option.id)}
               >
                 <Icon className="theme-option-icon" />
-                <span>{option.label}</span>
+                <span>{t(option.labelKey)}</span>
                 {isActive ? <CheckIcon className="theme-check" /> : null}
               </button>
             );
@@ -206,21 +211,10 @@ function measureJsonBytes(value: unknown) {
   return new Blob([JSON.stringify(value)]).size;
 }
 
-function formatStorageSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) {
-    const kilobytes = bytes / 1024;
-    return `${kilobytes.toLocaleString("ru", {
-      maximumFractionDigits: kilobytes < 10 ? 1 : 0,
-    })} КБ`;
-  }
-
-  return `${(bytes / (1024 * 1024)).toLocaleString("ru", {
-    maximumFractionDigits: 2,
-  })} МБ`;
-}
-
 function DataSettings() {
+  const t = useTranslations("Settings");
+  const common = useTranslations("Common");
+  const locale = useLocale();
   const [confirming, setConfirming] = useState<
     "attachments-all" | "chats-all" | "images-all" | string | null
   >(null);
@@ -273,6 +267,24 @@ function DataSettings() {
     [attachmentItems],
   );
 
+  function formatStorageSize(bytes: number) {
+    if (bytes < 1024) return t("bytes", { count: bytes });
+    if (bytes < 1024 * 1024) {
+      const kilobytes = bytes / 1024;
+      return t("kilobytes", {
+        count: kilobytes.toLocaleString(locale, {
+          maximumFractionDigits: kilobytes < 10 ? 1 : 0,
+        }),
+      });
+    }
+
+    return t("megabytes", {
+      count: (bytes / (1024 * 1024)).toLocaleString(locale, {
+        maximumFractionDigits: 2,
+      }),
+    });
+  }
+
   useEffect(() => {
     void initializeAuth();
   }, []);
@@ -290,12 +302,14 @@ function DataSettings() {
         activeChatId: null,
         chats: [],
       });
-      if (!didSave) throw new Error("Не удалось обновить локальную историю");
+      if (!didSave) throw new Error(t("localHistoryError"));
       setConfirming(null);
-      setManagementStatus("Все чаты удалены");
+      setManagementStatus(t("allChatsDeleted"));
     } catch (error) {
       setManagementStatus(
-        error instanceof Error ? error.message : "Не удалось удалить все чаты",
+        locale === "ru" && error instanceof Error
+          ? error.message
+          : t("deleteChatsError"),
       );
     } finally {
       setDeleting(null);
@@ -310,8 +324,8 @@ function DataSettings() {
     setDeleting(null);
     setManagementStatus(
       didClear
-        ? "Все созданные изображения удалены с устройства"
-        : "Не удалось удалить изображения",
+        ? t("allImagesDeleted")
+        : t("deleteImagesError"),
     );
   }
 
@@ -329,7 +343,7 @@ function DataSettings() {
       })),
     });
     setConfirming(null);
-    setStatus(didSave ? "Все файлы удалены с устройства" : "Не удалось удалить файлы");
+    setStatus(didSave ? t("allFilesDeleted") : t("deleteFilesError"));
   }
 
   function deleteAttachment(targetKey: string) {
@@ -362,27 +376,27 @@ function DataSettings() {
     setConfirming(null);
     setStatus(
       didSave
-        ? `Файл «${item.attachment.name}» удалён с устройства`
-        : "Не удалось удалить файл",
+        ? t("fileDeleted", { name: item.attachment.name })
+        : t("deleteFileError"),
     );
   }
 
   return (
     <>
       <SettingsTitle
-        title="Данные"
+        title={t("dataTitle")}
         description={
           auth.status === "authenticated"
-            ? "Управляйте синхронизированными чатами и локальными изображениями с одного экрана."
-            : "Чаты, вложения и генерации хранятся в этом браузере."
+            ? t("dataAuthenticatedDescription")
+            : t("dataGuestDescription")
         }
       />
 
       <section className="settings-section settings-data-management">
         <div className="settings-storage-heading">
           <div>
-            <h2>История и генерации</h2>
-            <p>Удаляйте каждый тип данных отдельно.</p>
+            <h2>{t("historyTitle")}</h2>
+            <p>{t("historyDescription")}</p>
           </div>
         </div>
 
@@ -391,11 +405,11 @@ function DataSettings() {
             <div className="settings-data-row-main">
               <span className="settings-data-icon"><ChatBubbleIcon className="size-[18px]" /></span>
               <div>
-                <strong>Все чаты</strong>
+                <strong>{t("allChats")}</strong>
                 <p>
                   {auth.status === "authenticated"
-                    ? `${store.chats.length} загружено · удаление со всех устройств`
-                    : `${store.chats.length} на этом устройстве`}
+                    ? t("syncedChatCount", { count: store.chats.length })
+                    : t("localChatCount", { count: store.chats.length })}
                 </p>
               </div>
             </div>
@@ -413,22 +427,22 @@ function DataSettings() {
               }}
             >
               <TrashIcon className="size-4" />
-              Удалить все чаты
+              {t("deleteAllChats")}
             </button>
           </article>
           {confirming === "chats-all" ? (
             <div className="delete-confirm" role="alert">
               <div>
-                <strong>Безвозвратно удалить все чаты?</strong>
+                <strong>{t("confirmAllChats")}</strong>
                 <p>
                   {auth.status === "authenticated"
-                    ? "История исчезнет на всех устройствах."
-                    : "История исчезнет из этого браузера."}
+                    ? t("syncedChatsWarning")
+                    : t("localChatsWarning")}
                 </p>
               </div>
               <div className="delete-confirm-actions">
                 <button type="button" className="settings-button" onClick={() => setConfirming(null)}>
-                  Отмена
+                  {common("cancel")}
                 </button>
                 <button
                   type="button"
@@ -436,7 +450,7 @@ function DataSettings() {
                   disabled={deleting !== null}
                   onClick={() => void deleteAllChats()}
                 >
-                  {deleting === "chats" ? "Удаляем…" : "Удалить чаты"}
+                  {deleting === "chats" ? t("deleting") : t("deleteChats")}
                 </button>
               </div>
             </div>
@@ -446,8 +460,8 @@ function DataSettings() {
             <div className="settings-data-row-main">
               <span className="settings-data-icon"><ImageIcon className="size-[18px]" /></span>
               <div>
-                <strong>Созданные изображения</strong>
-                <p>{generatedImages.length} · {formatStorageSize(generatedImagesSize)} · только localStorage</p>
+                <strong>{t("generatedImages")}</strong>
+                <p>{t("generatedImagesSummary", { count: generatedImages.length, size: formatStorageSize(generatedImagesSize) })}</p>
               </div>
             </div>
             <button
@@ -460,18 +474,18 @@ function DataSettings() {
               }}
             >
               <TrashIcon className="size-4" />
-              Удалить изображения
+              {t("deleteImages")}
             </button>
           </article>
           {confirming === "images-all" ? (
             <div className="delete-confirm" role="alert">
               <div>
-                <strong>Удалить все созданные изображения?</strong>
-                <p>Скачайте нужные файлы заранее — восстановить их не получится.</p>
+                <strong>{t("confirmImages")}</strong>
+                <p>{t("imagesWarning")}</p>
               </div>
               <div className="delete-confirm-actions">
                 <button type="button" className="settings-button" onClick={() => setConfirming(null)}>
-                  Отмена
+                  {common("cancel")}
                 </button>
                 <button
                   type="button"
@@ -479,7 +493,7 @@ function DataSettings() {
                   disabled={deleting !== null}
                   onClick={deleteAllGeneratedImages}
                 >
-                  Удалить изображения
+                  {t("deleteImages")}
                 </button>
               </div>
             </div>
@@ -492,23 +506,23 @@ function DataSettings() {
 
       <section className="settings-section settings-storage-summary">
         <div className="settings-storage-total">
-          <span>Локальные данные</span>
+          <span>{t("localData")}</span>
           <strong>{formatStorageSize(totalSize + generatedImagesSize)}</strong>
         </div>
         <div className="settings-storage-counts">
-          <span>Чатов: {store.chats.length}</span>
-          <span>Генераций: {generatedImages.length}</span>
-          <span>Файлов: {attachmentItems.length}</span>
-          <span>В чатах: {chatCount}</span>
+          <span>{t("chatsCount", { count: store.chats.length })}</span>
+          <span>{t("generationsCount", { count: generatedImages.length })}</span>
+          <span>{t("filesCount", { count: attachmentItems.length })}</span>
+          <span>{t("inChatsCount", { count: chatCount })}</span>
         </div>
-        <p>Вложения и генерации остаются только в этом браузере.</p>
+        <p>{t("localOnly")}</p>
       </section>
 
       <section className="settings-section settings-storage-section">
         <div className="settings-storage-heading">
           <div>
-            <h2>Файлы на этом устройстве</h2>
-            <p>Сначала показаны самые большие.</p>
+            <h2>{t("filesTitle")}</h2>
+            <p>{t("filesDescription")}</p>
           </div>
           <button
             type="button"
@@ -520,15 +534,15 @@ function DataSettings() {
             }}
           >
             <TrashIcon className="size-4" />
-            Удалить все файлы
+            {t("deleteAllFiles")}
           </button>
         </div>
 
         {confirming === "attachments-all" ? (
           <div className="delete-confirm" role="alert">
             <div>
-              <strong>Удалить все файлы с устройства?</strong>
-              <p>Текстовые чаты останутся.</p>
+              <strong>{t("confirmAllFiles")}</strong>
+              <p>{t("textChatsRemain")}</p>
             </div>
             <div className="delete-confirm-actions">
               <button
@@ -536,14 +550,14 @@ function DataSettings() {
                 className="settings-button"
                 onClick={() => setConfirming(null)}
               >
-                Отмена
+                {common("cancel")}
               </button>
               <button
                 type="button"
                 className="settings-button settings-button-danger"
                 onClick={deleteAllAttachments}
               >
-                Удалить всё
+                {t("deleteEverything")}
               </button>
             </div>
           </div>
@@ -561,7 +575,7 @@ function DataSettings() {
                   <div className="settings-storage-item-copy">
                     <h3>{attachment.name}</h3>
                     <p>
-                      {attachment.kind === "image" ? "Изображение" : "Видео"} · {chatTitle}
+                      {attachment.kind === "image" ? t("image") : t("video")} · {chatTitle}
                     </p>
                   </div>
                   <div className="settings-storage-item-actions">
@@ -569,7 +583,7 @@ function DataSettings() {
                     <button
                       type="button"
                       className="settings-storage-delete"
-                      aria-label={`Удалить файл «${attachment.name}»`}
+                      aria-label={t("deleteNamedFileAria", { name: attachment.name })}
                       onClick={() => {
                         setStatus("");
                         setConfirming(key);
@@ -583,8 +597,8 @@ function DataSettings() {
                 {confirming === key ? (
                   <div className="settings-storage-item-confirm" role="alert">
                     <div>
-                      <strong>Удалить «{attachment.name}» с устройства?</strong>
-                      <p>Текст чата останется.</p>
+                      <strong>{t("confirmNamedFile", { name: attachment.name })}</strong>
+                      <p>{t("textChatsRemain")}</p>
                     </div>
                     <div className="delete-confirm-actions">
                       <button
@@ -592,14 +606,14 @@ function DataSettings() {
                         className="settings-button"
                         onClick={() => setConfirming(null)}
                       >
-                        Отмена
+                        {common("cancel")}
                       </button>
                       <button
                         type="button"
                         className="settings-button settings-button-danger"
                         onClick={() => deleteAttachment(key)}
                       >
-                        Удалить файл
+                        {t("deleteFile")}
                       </button>
                     </div>
                   </div>
@@ -609,8 +623,8 @@ function DataSettings() {
           </div>
         ) : (
           <div className="settings-storage-empty">
-            <strong>Файлов на устройстве нет</strong>
-            <p>Текстовые чаты не занимают этот раздел.</p>
+            <strong>{t("noFiles")}</strong>
+            <p>{t("noFilesDescription")}</p>
           </div>
         )}
 
@@ -623,6 +637,8 @@ function DataSettings() {
 }
 
 function ModelSettings() {
+  const t = useTranslations("Settings");
+  const models = useTranslations("Models");
   const store = useSyncExternalStore(
     subscribeToChat,
     getChatSnapshot,
@@ -636,24 +652,24 @@ function ModelSettings() {
   return (
     <>
       <SettingsTitle
-        title="Модели"
-        description="Выберите модель по умолчанию и сравните доступные варианты."
+        title={t("modelsTitle")}
+        description={t("modelsDescription")}
       />
       <section className="settings-section settings-preference-row">
         <div className="settings-preference-copy">
-          <h2>Модель нового чата</h2>
-          <p>Будет выбрана при создании следующего диалога.</p>
+          <h2>{t("newChatModel")}</h2>
+          <p>{t("newChatModelDescription")}</p>
         </div>
         <select
           id="default-model"
           className="settings-select"
-          aria-label="Модель нового чата"
+          aria-label={t("newChatModel")}
           value={store.draftModelId}
           onChange={(event) => setDefaultModel(event.target.value)}
         >
           {MODELS.map((model) => (
             <option key={model.id} value={model.id}>
-              {model.title} · {model.provider}
+              {model.id === AUTO_MODEL_ID ? models("autoTitle") : model.title} · {model.provider}
             </option>
           ))}
         </select>
@@ -662,8 +678,8 @@ function ModelSettings() {
       <section className="settings-section model-catalog">
         <div className="settings-section-heading">
           <div>
-            <h2>Доступные модели</h2>
-            <p>Кратко о возможностях каждой модели.</p>
+            <h2>{t("availableModels")}</h2>
+            <p>{t("availableModelsDescription")}</p>
           </div>
           <span>{MODELS.length}</span>
         </div>
@@ -678,18 +694,18 @@ function ModelSettings() {
               >
                 <div className="model-card-main">
                   <div className="model-card-title">
-                    <h3>{model.title}</h3>
+                    <h3>{model.id === AUTO_MODEL_ID ? models("autoTitle") : model.title}</h3>
                     <span>{model.provider}</span>
                     {isSelected ? (
-                      <span className="model-selected">По умолчанию</span>
+                      <span className="model-selected">{t("default")}</span>
                     ) : null}
                   </div>
-                  <p>{model.description}</p>
+                  <p>{models(`descriptions.${getModelDescriptionKey(model.id)}`)}</p>
                   <code>{model.id}</code>
                 </div>
                 <div className="model-badges">
                   <span className="model-capability">
-                    {getModelCapabilityLabel(model)}
+                    {models(getModelCapabilityKey(model))}
                   </span>
                   {model.isFree ? <span className="model-free">free</span> : null}
                 </div>
@@ -703,11 +719,12 @@ function ModelSettings() {
 }
 
 function AboutSettings({ version }: { version: string }) {
+  const t = useTranslations("Settings");
   return (
     <>
       <SettingsTitle
-        title="О приложении"
-        description="Информация о текущей сборке Hermes."
+        title={t("aboutTitle")}
+        description={t("aboutDescription")}
       />
       <div className="about-card">
         <div className="about-logo">
@@ -722,21 +739,21 @@ function AboutSettings({ version }: { version: string }) {
         </div>
         <div>
           <h2>Hermes</h2>
-          <p>Локальный интерфейс для общения с моделями через OpenRouter.</p>
+          <p>{t("aboutSummary")}</p>
         </div>
       </div>
       <dl className="about-details">
         <div>
-          <dt>Версия</dt>
+          <dt>{t("version")}</dt>
           <dd>v{version}</dd>
         </div>
         <div>
-          <dt>Подключено моделей</dt>
+          <dt>{t("connectedModels")}</dt>
           <dd>{MODELS.length}</dd>
         </div>
         <div>
-          <dt>Хранение истории</dt>
-          <dd>Только на устройстве</dd>
+          <dt>{t("historyStorage")}</dt>
+          <dd>{t("deviceOnly")}</dd>
         </div>
       </dl>
     </>

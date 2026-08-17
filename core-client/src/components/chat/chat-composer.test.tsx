@@ -82,6 +82,8 @@ describe("ChatComposer", () => {
       name: "Интернет-поиск",
     });
     expect(internetButton.getAttribute("aria-pressed")).toBe("false");
+    expect(internetButton.querySelector("svg")).not.toBeNull();
+    expect(internetButton.textContent).toBe("Интернет");
 
     const messageInput = screen.getByRole("textbox", { name: "Сообщение" });
     fireEvent.change(messageInput, {

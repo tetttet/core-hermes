@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CheckIcon, CopyIcon } from "@/components/icons";
 import { writeToClipboard } from "@/lib/clipboard";
 
 type CopyMessageButtonProps = {
   content: string;
-  subject?: "ответ" | "сообщение";
+  subject?: "answer" | "message";
 };
 
 export function CopyMessageButton({
   content,
-  subject = "ответ",
+  subject = "answer",
 }: CopyMessageButtonProps) {
+  const t = useTranslations("Copy");
+  const messageText = useTranslations("Messages");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -37,18 +40,19 @@ export function CopyMessageButton({
 
   const label =
     copyState === "copied"
-      ? "Скопировано"
+      ? t("copied")
       : copyState === "error"
-        ? "Не удалось"
-        : "Копировать";
+        ? t("failed")
+        : t("copy");
+  const subjectLabel = messageText(subject);
 
   return (
     <button
       type="button"
       className="message-copy-button"
       onClick={handleCopy}
-      aria-label={`${label} ${subject}`}
-      title={`${label} ${subject}`}
+      aria-label={`${label} ${subjectLabel}`}
+      title={`${label} ${subjectLabel}`}
     >
       {copyState === "copied" ? (
         <CheckIcon className="message-copy-icon" />

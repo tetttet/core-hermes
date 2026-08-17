@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { XIcon } from "@/components/icons";
 import type { ChatAttachment } from "@/types/chat";
 
@@ -13,6 +16,7 @@ export function AttachmentPreview({
   onRemove,
   compact = false,
 }: AttachmentPreviewProps) {
+  const t = useTranslations("Composer");
   if (attachments.length === 0) return null;
 
   return (
@@ -55,7 +59,7 @@ export function AttachmentPreview({
             <button
               type="button"
               onClick={() => onRemove(attachment.id)}
-              aria-label={`Убрать ${attachment.name}`}
+              aria-label={t("removeAttachment", { name: attachment.name })}
               className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/65 text-white transition hover:bg-black/80"
             >
               <XIcon className="size-4" />

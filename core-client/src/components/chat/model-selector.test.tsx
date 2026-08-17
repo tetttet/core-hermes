@@ -13,7 +13,7 @@ describe("ModelSelector", () => {
     render(<ModelSelector value={AUTO_MODEL_ID} onChange={onChange} />);
 
     expect(screen.queryByRole("combobox")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Auto/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Авто/ }));
 
     expect(featuredModels).toHaveLength(3);
     expect(screen.getByText("Сам выберет лучшую модель")).toBeDefined();
