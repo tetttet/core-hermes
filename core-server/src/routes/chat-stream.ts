@@ -4,6 +4,7 @@ import { chatMessage, type ChatMessage } from "../lib/chat-input.js";
 import { isSupportedModel, modelAccepts } from "../lib/models.js";
 import { cleanString, isUuid } from "../lib/validation.js";
 import { guestLimit } from "../middleware/guest-limit.js";
+import { searchAnySearch, type WebSearchResult } from "../services/anysearch.js";
 import { persistAssistantMessage, persistUserMessage } from "../services/chat-persistence.js";
 import { runOpenRouterStream } from "../services/openrouter.js";
 
@@ -14,6 +15,7 @@ export function chatStreamRouter(context: AppContext) {
     const model = cleanString(request.body?.model, 120);
     const messages = request.body?.messages;
     const allowFallback = request.body?.allowFallback !== false;
+    const webSearchEnabled = request.body?.webSearchEnabled === true;
     if (
       !model ||
       !isSupportedModel(model) ||
@@ -23,7 +25,9 @@ export function chatStreamRouter(context: AppContext) {
       !messages.every(chatMessage) ||
       messages.at(-1)?.role !== "user" ||
       (request.body?.allowFallback !== undefined &&
-        typeof request.body.allowFallback !== "boolean")
+        typeof request.body.allowFallback !== "boolean") ||
+      (request.body?.webSearchEnabled !== undefined &&
+        typeof request.body.webSearchEnabled !== "boolean")
     ) {
       response.status(400).json({ error: "Некорректный запрос к модели" });
       return;
@@ -80,11 +84,40 @@ export function chatStreamRouter(context: AppContext) {
     });
 
     try {
+      let webSearchResults: WebSearchResult[] | undefined;
+      const searchQuery = latestUserMessage.content.trim();
+      if (webSearchEnabled && searchQuery) {
+        response.write(`${JSON.stringify({
+          type: "status",
+          phase: "web-search",
+          message: "Ищем актуальную информацию в интернете...",
+        })}\n`);
+        try {
+          webSearchResults = await searchAnySearch(searchQuery, controller.signal);
+          response.write(`${JSON.stringify({
+            type: "status",
+            phase: "web-search-complete",
+            message: webSearchResults.length
+              ? "Источники найдены, готовим ответ..."
+              : "Поиск не дал результатов, отвечаем без веб-данных...",
+          })}\n`);
+        } catch (error) {
+          if (controller.signal.aborted) throw error;
+          context.logger.warn({ err: error }, "AnySearch failed; continuing without web search");
+          response.write(`${JSON.stringify({
+            type: "status",
+            phase: "web-search-fallback",
+            message: "Веб-поиск недоступен, продолжаем без него...",
+          })}\n`);
+        }
+      }
+
       const result = await runOpenRouterStream({
         config: context.config,
         logger: context.logger,
         model,
         messages: typedMessages,
+        ...(webSearchResults?.length ? { webSearchResults } : {}),
         allowFallback,
         signal: controller.signal,
         emit(event) {

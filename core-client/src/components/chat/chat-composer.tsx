@@ -55,7 +55,11 @@ type ChatComposerProps = {
   modelId: string;
   modelLocked: boolean;
   onModelChange: (modelId: string) => void;
-  onSend: (message: string, attachments: ChatAttachment[]) => void;
+  onSend: (
+    message: string,
+    attachments: ChatAttachment[],
+    webSearchEnabled: boolean,
+  ) => void;
   onStop: () => void;
   isLoading: boolean;
   disabled?: boolean;
@@ -387,6 +391,7 @@ export function ChatComposer({
   const [fileError, setFileError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [previewAttachment, setPreviewAttachment] =
     useState<ChatAttachment | null>(null);
 
@@ -525,7 +530,7 @@ export function ChatComposer({
   function submit() {
     if (!canSend) return;
 
-    onSend(value.trim(), attachments);
+    onSend(value.trim(), attachments, webSearchEnabled);
     resetComposer();
   }
 
@@ -756,6 +761,20 @@ export function ChatComposer({
                 ...new Set(attachments.map((attachment) => attachment.kind)),
               ]}
             />
+            <button
+              type="button"
+              disabled={controlsDisabled}
+              aria-label="Интернет-поиск"
+              aria-pressed={webSearchEnabled}
+              title={webSearchEnabled ? "Выключить интернет-поиск" : "Включить интернет-поиск"}
+              onClick={() => setWebSearchEnabled((enabled) => !enabled)}
+              className={`composer-internet flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-2 text-xs font-medium transition duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                webSearchEnabled ? "composer-internet--active" : ""
+              }`}
+            >
+              <span aria-hidden="true">🌐</span>
+              <span>Интернет</span>
+            </button>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">

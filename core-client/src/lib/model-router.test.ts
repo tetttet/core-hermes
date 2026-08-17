@@ -46,7 +46,7 @@ describe("resolveModelRoute", () => {
   });
 
   it("retries a manual vision model first and can disable cross-model fallback", () => {
-    const selectedModelId = "nvidia/nemotron-nano-12b-v2-vl:free";
+    const selectedModelId = "google/gemma-4-26b-a4b-it:free";
     const withFallback = resolveModelRoute({
       selectedModelId,
       attachmentKinds: ["image"],
@@ -64,7 +64,7 @@ describe("resolveModelRoute", () => {
   });
 
   it("falls back from a manual text model when fallback is enabled", () => {
-    const selectedModelId = "liquid/lfm-2.5-2.6b:free";
+    const selectedModelId = "poolside/laguna-s-2.1:free";
     const route = resolveModelRoute({
       selectedModelId,
       attachmentKinds: [],

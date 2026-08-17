@@ -18,7 +18,7 @@ const userMessage: ChatMessage = {
   content: "Ответь одним словом",
 };
 const API_MODELS = MODELS.filter((model) => model.id !== AUTO_MODEL_ID);
-const MANUAL_MODEL_ID = "google/gemma-4-31b-it:free";
+const MANUAL_MODEL_ID = "google/gemma-4-26b-a4b-it:free";
 
 function sseResponse(content = "Готово") {
   return new Response(
@@ -227,7 +227,7 @@ describe("createOpenRouterStream", () => {
   });
 
   it("falls back from an unavailable manually selected text model", async () => {
-    const selectedModelId = "liquid/lfm-2.5-2.6b:free";
+    const selectedModelId = "poolside/laguna-s-2.1:free";
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response("", { status: 503 }))

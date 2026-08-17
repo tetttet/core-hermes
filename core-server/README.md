@@ -15,7 +15,8 @@ flowchart LR
   A -->|user| P[LRU profile / recent chats]
   L -. batch deltas .-> N[(Neon PgBouncer)]
   P -. cache miss / writes .-> N
-  E -->|stream request| O[OpenRouter]
+  E -->|optional web search| S[AnySearch]
+  E -->|stream request + sources| O[OpenRouter]
   O -->|NDJSON deltas| C
   E -. async text + file metadata .-> N
 ```
@@ -54,7 +55,10 @@ cookies на домене веб-приложения; потоковый отв
 | `GET` | `/health/ready` | нет | Readiness с проверкой PostgreSQL |
 
 Stream принимает текущий клиентский формат `model`, `messages`,
-`allowFallback` и дополнительные `chatId`, `title`, `assistantMessageId`.
+`allowFallback`, опциональный `webSearchEnabled` и дополнительные `chatId`,
+`title`, `assistantMessageId`. При `webSearchEnabled: true` сервер запрашивает
+до пяти результатов у AnySearch без API key и добавляет их в контекст модели;
+ошибка или таймаут поиска не прерывают обычный LLM-запрос.
 Последние три обязательны только для авторизованного пользователя, потому что
 они обеспечивают идемпотентное сохранение истории. Гостевой stream не пишет ни
 текст, ни метаданные файлов.

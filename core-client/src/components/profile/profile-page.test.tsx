@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProfilePage } from "./profile-page";
 
@@ -31,23 +31,13 @@ describe("ProfilePage", () => {
 
   afterEach(cleanup);
 
-  it("shows locally generated images in a separate profile tab", async () => {
+  it("keeps the paused image-generation UI hidden without deleting local data", () => {
     render(<ProfilePage />);
 
-    fireEvent.click(screen.getByRole("tab", { name: /Изображения/ }));
-
-    expect(screen.getByRole("img", { name: generatedImage.prompt })).toBeDefined();
-    expect(screen.getByText(generatedImage.prompt)).toBeDefined();
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: `Удалить изображение «${generatedImage.prompt}»`,
-      }),
+    expect(screen.queryByRole("tab", { name: /Изображения/ })).toBeNull();
+    expect(screen.queryByText(generatedImage.prompt)).toBeNull();
+    expect(window.localStorage.getItem("hermes-generated-images-v1")).toContain(
+      generatedImage.id,
     );
-
-    await waitFor(() => {
-      expect(window.localStorage.getItem("hermes-generated-images-v1")).toBeNull();
-      expect(screen.getByText("Здесь пока пусто")).toBeDefined();
-    });
   });
 });

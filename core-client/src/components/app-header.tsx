@@ -6,7 +6,7 @@ import { useEffect, useState, ViewTransition } from "react";
 import { UserIcon } from "@/components/icons";
 
 type AppHeaderProps = {
-  activePage: "explore" | "generation";
+  activePage: "about";
 };
 
 export function AppHeader({ activePage }: AppHeaderProps) {
@@ -58,32 +58,15 @@ export function AppHeader({ activePage }: AppHeaderProps) {
 
         <nav className="generation-nav" aria-label="Основная навигация">
           <Link href="/">Чат</Link>
-          {activePage === "explore" ? (
+          {activePage === "about" ? (
             <ViewTransition
               name="generation-nav-active"
               share={{ "header-section": "generation-nav-active", default: "none" }}
               default="none"
             >
-              <span aria-current="page">Исследовать</span>
+              <span aria-current="page">О нас</span>
             </ViewTransition>
-          ) : (
-            <Link href="/explore" transitionTypes={["header-section"]}>
-              Исследовать
-            </Link>
-          )}
-          {activePage === "generation" ? (
-            <ViewTransition
-              name="generation-nav-active"
-              share={{ "header-section": "generation-nav-active", default: "none" }}
-              default="none"
-            >
-              <span aria-current="page">Генерация</span>
-            </ViewTransition>
-          ) : (
-            <Link href="/generation" transitionTypes={["header-section"]}>
-              Генерация
-            </Link>
-          )}
+          ) : null}
         </nav>
 
         <Link href="/profile" className="generation-profile-link">

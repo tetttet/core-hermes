@@ -64,4 +64,44 @@ describe("ChatComposer", () => {
       screen.getByRole("dialog", { name: "Просмотр example.png" }),
     ).toBeDefined();
   });
+
+  it("keeps internet search off by default and sends the enabled flag", () => {
+    const onSend = vi.fn();
+    render(
+      <ChatComposer
+        modelId={AUTO_MODEL_ID}
+        modelLocked={false}
+        onModelChange={vi.fn()}
+        onSend={onSend}
+        onStop={vi.fn()}
+        isLoading={false}
+      />,
+    );
+
+    const internetButton = screen.getByRole("button", {
+      name: "Интернет-поиск",
+    });
+    expect(internetButton.getAttribute("aria-pressed")).toBe("false");
+
+    const messageInput = screen.getByRole("textbox", { name: "Сообщение" });
+    fireEvent.change(messageInput, {
+      target: { value: "Обычный вопрос" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    expect(onSend).toHaveBeenNthCalledWith(1, "Обычный вопрос", [], false);
+
+    fireEvent.click(internetButton);
+    expect(internetButton.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.change(messageInput, {
+      target: { value: "Что произошло сегодня?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+
+    expect(onSend).toHaveBeenNthCalledWith(
+      2,
+      "Что произошло сегодня?",
+      [],
+      true,
+    );
+  });
 });

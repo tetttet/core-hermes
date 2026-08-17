@@ -5,8 +5,12 @@ export type ModelGroup =
   | "vision"
   | "coding"
   | "reasoning"
-  | "fast"
-  | "specialized";
+  | "fast";
+
+export type ModelLicense = {
+  name: string;
+  url: string;
+};
 
 export type ModelOption = {
   id: string;
@@ -20,34 +24,56 @@ export type ModelOption = {
   priority: number;
   recommended: boolean;
   enabled: boolean;
+  license: ModelLicense | null;
 };
+
+export const MODEL_LICENSES = {
+  apache: {
+    name: "Apache 2.0",
+    url: "https://www.apache.org/licenses/LICENSE-2.0",
+  },
+  gemmaApache: {
+    name: "Apache 2.0 · Gemma",
+    url: "https://ai.google.dev/gemma/apache_2",
+  },
+  openMdw: {
+    name: "OpenMDW 1.1",
+    url: "https://openmdw.ai/license/1-1/",
+  },
+  nvidiaOpenModelAgreement: {
+    name: "NVIDIA Open Model Agreement",
+    url: "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-agreement/",
+  },
+  nvidiaNemotron: {
+    name: "NVIDIA Nemotron Open Model License",
+    url: "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-nemotron-open-model-license/",
+  },
+  nvidiaOpenModel: {
+    name: "NVIDIA Open Model License",
+    url: "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/",
+  },
+} as const satisfies Record<string, ModelLicense>;
 
 // Локальный ID: он никогда не отправляется в OpenRouter как имя модели.
 export const AUTO_MODEL_ID = "hermes/auto-vision-safe";
-export const OPENROUTER_FREE_MODEL_ID = "openrouter/free";
 
 // В Auto используем только модели, которые прошли реальную проверку API.
 export const VISION_FALLBACK_MODEL_IDS = [
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  OPENROUTER_FREE_MODEL_ID,
 ] as const;
 
 export const TEXT_FALLBACK_MODEL_IDS = [
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-nano-30b-a3b:free",
   "openai/gpt-oss-20b:free",
-  OPENROUTER_FREE_MODEL_ID,
 ] as const;
 
-const MANDATORY_REASONING_MODEL_IDS = new Set([
-  "liquid/lfm-2.5-2.6b:free",
-  "openai/gpt-oss-20b:free",
-]);
-
 export function getModelReasoning(modelId: string) {
+  const effort = modelId === "openai/gpt-oss-20b:free" ? "low" : "none";
+
   return {
-    effort: MANDATORY_REASONING_MODEL_IDS.has(modelId) ? "minimal" : "none",
+    effort,
     exclude: true,
   } as const;
 }
@@ -67,19 +93,7 @@ export const MODEL_CATALOG = [
     priority: 0,
     recommended: true,
     enabled: true,
-  },
-  {
-    id: "google/gemma-4-31b-it:free",
-    title: "Gemma 4 31B",
-    provider: "Google",
-    description: "Рекомендуемая бесплатная модель для анализа фото и документов.",
-    group: "vision",
-    supportsVision: true,
-    supportsVideo: true,
-    isFree: true,
-    priority: 10,
-    recommended: true,
-    enabled: true,
+    license: null,
   },
   {
     id: "google/gemma-4-26b-a4b-it:free",
@@ -93,6 +107,7 @@ export const MODEL_CATALOG = [
     priority: 20,
     recommended: true,
     enabled: true,
+    license: MODEL_LICENSES.gemmaApache,
   },
   {
     id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
@@ -106,32 +121,7 @@ export const MODEL_CATALOG = [
     priority: 30,
     recommended: true,
     enabled: true,
-  },
-  {
-    id: "nvidia/nemotron-nano-12b-v2-vl:free",
-    title: "Nemotron Nano 12B VL",
-    provider: "NVIDIA",
-    description: "Анализ изображений и видео, распознавание деталей и визуальные вопросы.",
-    group: "vision",
-    supportsVision: true,
-    supportsVideo: true,
-    isFree: true,
-    priority: 40,
-    recommended: false,
-    enabled: true,
-  },
-  {
-    id: OPENROUTER_FREE_MODEL_ID,
-    title: "Auto Free",
-    provider: "OpenRouter",
-    description: "Бесплатный роутер OpenRouter; в Auto используется только последним резервом для фото.",
-    group: "universal",
-    supportsVision: true,
-    supportsVideo: false,
-    isFree: true,
-    priority: 50,
-    recommended: false,
-    enabled: true,
+    license: MODEL_LICENSES.nvidiaOpenModelAgreement,
   },
   {
     id: "nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -145,6 +135,7 @@ export const MODEL_CATALOG = [
     priority: 100,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.openMdw,
   },
   {
     id: "nvidia/nemotron-3-super-120b-a12b:free",
@@ -158,6 +149,7 @@ export const MODEL_CATALOG = [
     priority: 110,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.nvidiaNemotron,
   },
   {
     id: "nvidia/nemotron-3-nano-30b-a3b:free",
@@ -171,6 +163,7 @@ export const MODEL_CATALOG = [
     priority: 120,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.nvidiaNemotron,
   },
   {
     id: "openai/gpt-oss-20b:free",
@@ -184,6 +177,7 @@ export const MODEL_CATALOG = [
     priority: 130,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.apache,
   },
   {
     id: "poolside/laguna-s-2.1:free",
@@ -197,6 +191,7 @@ export const MODEL_CATALOG = [
     priority: 200,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.openMdw,
   },
   {
     id: "poolside/laguna-xs-2.1:free",
@@ -210,6 +205,7 @@ export const MODEL_CATALOG = [
     priority: 210,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.openMdw,
   },
   {
     id: "cohere/north-mini-code:free",
@@ -223,6 +219,7 @@ export const MODEL_CATALOG = [
     priority: 220,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.apache,
   },
   {
     id: "nvidia/nemotron-3.5-lightning:free",
@@ -236,6 +233,7 @@ export const MODEL_CATALOG = [
     priority: 300,
     recommended: false,
     enabled: true,
+    license: MODEL_LICENSES.openMdw,
   },
   {
     id: "nvidia/nemotron-nano-9b-v2:free",
@@ -249,45 +247,7 @@ export const MODEL_CATALOG = [
     priority: 310,
     recommended: false,
     enabled: true,
-  },
-  {
-    id: "inclusionai/ling-3.0-tiny:free",
-    title: "Ling 3.0 Tiny",
-    provider: "InclusionAI",
-    description: "Повседневный диалог, выполнение инструкций и быстрые ответы.",
-    group: "fast",
-    supportsVision: false,
-    supportsVideo: false,
-    isFree: true,
-    priority: 320,
-    recommended: false,
-    enabled: true,
-  },
-  {
-    id: "liquid/lfm-2.5-2.6b:free",
-    title: "LFM2.5 2.6B",
-    provider: "Liquid AI",
-    description: "Извлечение данных, RAG и компактная работа с длинным контекстом.",
-    group: "fast",
-    supportsVision: false,
-    supportsVideo: false,
-    isFree: true,
-    priority: 330,
-    recommended: false,
-    enabled: true,
-  },
-  {
-    id: "nvidia/nemotron-3.5-content-safety:free",
-    title: "Nemotron 3.5 Content Safety",
-    provider: "NVIDIA",
-    description: "Проверка безопасности текста и изображений; не для обычного диалога.",
-    group: "specialized",
-    supportsVision: true,
-    supportsVideo: false,
-    isFree: true,
-    priority: 400,
-    recommended: false,
-    enabled: true,
+    license: MODEL_LICENSES.nvidiaOpenModel,
   },
 ] as const satisfies readonly ModelOption[];
 

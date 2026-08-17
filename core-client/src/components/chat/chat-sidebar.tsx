@@ -22,7 +22,6 @@ import {
   PencilIcon,
   PlusIcon,
   SettingsIcon,
-  SparklesIcon,
   StarIcon,
   TrashIcon,
   UserIcon,
@@ -601,14 +600,14 @@ export function ChatSidebar({
           </button>
         </Tooltip>
 
-        <Tooltip content="Генерация" disabled={!isCollapsed} className="mt-0.5 w-full">
+        <Tooltip content="О нас" disabled={!isCollapsed} className="mt-0.5 w-full">
           <Link
-            href="/explore"
+            href="/about"
             onClick={onClose}
-            className={`sidebar-new-chat sidebar-generation ${isCollapsed ? "sidebar-new-chat-collapsed" : ""}`}
+            className={`sidebar-new-chat sidebar-about ${isCollapsed ? "sidebar-new-chat-collapsed" : ""}`}
           >
-            <SparklesIcon className="size-[18px] shrink-0" />
-            <span className="sidebar-button-text">Генерация</span>
+            <InfoIcon className="size-[18px] shrink-0" />
+            <span className="sidebar-button-text">О нас</span>
           </Link>
         </Tooltip>
 

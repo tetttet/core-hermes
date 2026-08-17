@@ -50,6 +50,7 @@ type PendingRequest = {
   modelId: string;
   messages: ChatMessage[];
   assistantId: string;
+  webSearchEnabled: boolean;
 };
 
 function updateAssistantMessage(
@@ -615,6 +616,7 @@ export function ChatShell() {
           model: pending.modelId,
           messages: prepareApiMessages(pending.messages),
           allowFallback: true,
+          webSearchEnabled: pending.webSearchEnabled,
         },
         requestController.signal,
       );
@@ -745,7 +747,11 @@ export function ChatShell() {
     }
   }
 
-  function sendMessage(content: string, attachments: ChatAttachment[]) {
+  function sendMessage(
+    content: string,
+    attachments: ChatAttachment[],
+    webSearchEnabled: boolean,
+  ) {
     const sentAt = Date.now();
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -806,6 +812,7 @@ export function ChatShell() {
       modelId,
       messages: requestMessages,
       assistantId: assistantMessage.id,
+      webSearchEnabled,
     });
   }
 
@@ -905,11 +912,6 @@ export function ChatShell() {
             </div>
           </div>
 
-          <Link href="/explore" className="chat-header-explore">
-            Исследовать
-          </Link>
-
-          <div className="chat-header-balance" aria-hidden="true" />
         </header>
 
         <div

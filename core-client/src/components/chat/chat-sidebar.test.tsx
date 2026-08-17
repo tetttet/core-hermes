@@ -37,12 +37,12 @@ function renderSidebar(isCollapsed = false) {
 describe("ChatSidebar", () => {
   afterEach(cleanup);
 
-  it("opens the explore page from the generation item", () => {
+  it("opens the about page from the sidebar", () => {
     renderSidebar();
 
     expect(
-      screen.getByRole("link", { name: "Генерация" }).getAttribute("href"),
-    ).toBe("/explore");
+      screen.getByRole("link", { name: "О нас" }).getAttribute("href"),
+    ).toBe("/about");
   });
 
   it("uses the transparent theme-aware logo", () => {

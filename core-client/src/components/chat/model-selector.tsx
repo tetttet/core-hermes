@@ -21,11 +21,8 @@ type ModelSelectorProps = {
 
 const SHORT_MODEL_TITLES: Record<string, string> = {
   [AUTO_MODEL_ID]: "Auto",
-  "google/gemma-4-31b-it:free": "Gemma 4",
   "google/gemma-4-26b-a4b-it:free": "Gemma 4 Fast",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "Nemotron Omni",
-  "nvidia/nemotron-nano-12b-v2-vl:free": "Nemotron Vision",
-  "openrouter/free": "Auto Free",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron Ultra",
   "nvidia/nemotron-3-super-120b-a12b:free": "Nemotron Super",
   "nvidia/nemotron-3-nano-30b-a3b:free": "Nemotron Nano 30B",
@@ -35,19 +32,13 @@ const SHORT_MODEL_TITLES: Record<string, string> = {
   "cohere/north-mini-code:free": "North Mini Code",
   "nvidia/nemotron-3.5-lightning:free": "Nemotron Lightning",
   "nvidia/nemotron-nano-9b-v2:free": "Nemotron Nano 9B",
-  "inclusionai/ling-3.0-tiny:free": "Ling Tiny",
-  "liquid/lfm-2.5-2.6b:free": "LFM2.5 2.6B",
-  "nvidia/nemotron-3.5-content-safety:free": "Content Safety",
 };
 
 const SHORT_MODEL_DESCRIPTIONS: Record<string, string> = {
   [AUTO_MODEL_ID]: "Сам выберет лучшую модель",
-  "google/gemma-4-31b-it:free": "Фото и документы",
   "google/gemma-4-26b-a4b-it:free": "Быстрый анализ фото и видео",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free":
     "Сложные визуальные задачи",
-  "nvidia/nemotron-nano-12b-v2-vl:free": "Распознавание деталей",
-  "openrouter/free": "Бесплатный автоматический выбор",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "Глубокий анализ и логика",
   "nvidia/nemotron-3-super-120b-a12b:free":
     "Баланс скорости и качества",
@@ -58,10 +49,6 @@ const SHORT_MODEL_DESCRIPTIONS: Record<string, string> = {
   "cohere/north-mini-code:free": "Агентное программирование",
   "nvidia/nemotron-3.5-lightning:free": "Быстрые агенты, контекст 1M",
   "nvidia/nemotron-nano-9b-v2:free": "Компактные ответы и логика",
-  "inclusionai/ling-3.0-tiny:free": "Диалоги и выполнение инструкций",
-  "liquid/lfm-2.5-2.6b:free": "RAG и извлечение данных",
-  "nvidia/nemotron-3.5-content-safety:free":
-    "Модерация текста и изображений",
 };
 
 const MODEL_GROUPS: readonly { id: ModelGroup; label: string }[] = [
@@ -70,7 +57,6 @@ const MODEL_GROUPS: readonly { id: ModelGroup; label: string }[] = [
   { id: "coding", label: "Код и разработка" },
   { id: "reasoning", label: "Глубокое мышление" },
   { id: "fast", label: "Быстрые и компактные" },
-  { id: "specialized", label: "Специальные" },
 ];
 
 function shortModelTitle(model: ModelOption) {

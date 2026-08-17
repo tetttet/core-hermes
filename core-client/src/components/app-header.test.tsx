@@ -32,7 +32,7 @@ describe("AppHeader", () => {
   });
 
   it("smoothly switches to the compact sticky state after scrolling", () => {
-    const { container } = render(<AppHeader activePage="generation" />);
+    const { container } = render(<AppHeader activePage="about" />);
     const header = container.querySelector(".generation-header")!;
 
     expect(header.getAttribute("data-compact")).toBe("false");
@@ -54,8 +54,8 @@ describe("AppHeader", () => {
     expect(header.getAttribute("data-compact")).toBe("false");
   });
 
-  it("reacts to the generation conversation's internal scroll", () => {
-    const { container } = render(<AppHeader activePage="generation" />);
+  it("reacts to an internal page scroll", () => {
+    const { container } = render(<AppHeader activePage="about" />);
     const header = container.querySelector(".generation-header")!;
     const scroller = document.createElement("div");
     Object.defineProperty(scroller, "scrollTop", {
