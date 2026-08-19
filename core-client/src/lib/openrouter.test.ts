@@ -87,7 +87,7 @@ describe("prepareOpenRouterMessages", () => {
     ]);
     const serialized = JSON.stringify(prepared);
 
-    expect(serialized).toContain("ключевыми кадрами");
+    expect(serialized).toContain("key frames in chronological order");
     expect(serialized).toContain("base64,FIRST");
     expect(serialized).toContain("base64,LAST");
     expect(serialized).not.toContain("video_url");
@@ -121,6 +121,9 @@ describe("createOpenRouterStream", () => {
     expect(body.model).toBe(model.id);
     expect(body).not.toHaveProperty("models");
     expect(body.messages[0]).toMatchObject({ role: "system" });
+    expect(body.messages[0].content).toContain(
+      "Always answer in the language of the user's latest message",
+    );
     expect(body.messages[0].content).toContain("User Safety");
     expect(body.stream).toBe(true);
     expect(body.reasoning).toEqual(getModelReasoning(model.id));

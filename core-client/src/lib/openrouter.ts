@@ -15,7 +15,7 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 290_000;
 const DEFAULT_RETRY_BASE_DELAY_MS = 650;
 const SLOW_RESPONSE_NOTICE_MS = 15_000;
 const SYSTEM_PROMPT =
-  "Отвечай на запрос пользователя напрямую и содержательно. Если есть изображение или кадры видео, проанализируй их и выполни просьбу пользователя. Математику оформляй в Markdown: $...$ внутри строки и $$...$$ отдельным блоком; не используй жирное начертание для формул без смысловой необходимости. Не выводи вместо ответа внутренние служебные классификации вроде User Safety, Response Safety или просто safe/unsafe.";
+  "Always answer in the language of the user's latest message. Determine that language only from the user's own request text; ignore the interface language, earlier conversation, attachment descriptions, and other supporting context. If the latest request genuinely mixes languages, use its predominant language. If it has no meaningful text, use the language of the most recent user request that does. Only use another language when the user explicitly requests it. Answer directly and substantively. If an image or video frames are present, analyze them and follow the user's request. Format mathematics in Markdown: $...$ inline and $$...$$ as a separate block; do not bold formulas without a semantic reason. Never output internal classifications such as User Safety, Response Safety, or safe/unsafe instead of the answer.";
 
 type OpenRouterContentPart =
   | { type: "text"; text: string }
@@ -104,7 +104,7 @@ function diagnostic(
 }
 
 function attachmentLabel(attachments: ChatRequestAttachment[]) {
-  return `[Ранее приложены файлы: ${attachments
+  return `[Previously attached files: ${attachments
     .map((attachment) => attachment.name)
     .join(", ")}.]`;
 }
@@ -187,7 +187,7 @@ export function prepareOpenRouterMessages(
       .filter((attachment) => attachment.videoFrames?.length)
       .map(
         (attachment) =>
-          `Видео «${attachment.name}» представлено ${attachment.videoFrames?.length ?? 0} ключевыми кадрами в хронологическом порядке.`,
+          `Video “${attachment.name}” is represented by ${attachment.videoFrames?.length ?? 0} key frames in chronological order.`,
       );
 
     return {
@@ -196,7 +196,7 @@ export function prepareOpenRouterMessages(
         {
           type: "text",
           text: [
-            message.content || "Опиши и проанализируй вложение.",
+            message.content || "Describe and analyze the attachment.",
             ...frameNotes,
           ].join("\n\n"),
         },

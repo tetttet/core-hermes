@@ -45,6 +45,14 @@ describe("ChatSidebar", () => {
     ).toBe("/about");
   });
 
+  it("opens the hcode guide below the about page", () => {
+    renderSidebar();
+
+    expect(
+      screen.getByRole("link", { name: "Hermes Code" }).getAttribute("href"),
+    ).toBe("/hcode");
+  });
+
   it("uses the transparent theme-aware logo", () => {
     const { container } = renderSidebar();
 

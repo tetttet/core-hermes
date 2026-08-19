@@ -381,6 +381,29 @@ export function InfoIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function TerminalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <rect
+        x="3.25"
+        y="4.25"
+        width="17.5"
+        height="15.5"
+        rx="2.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="m7 9 2.5 2.5L7 14m5 0h4.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function MoreHorizontalIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" {...props}>

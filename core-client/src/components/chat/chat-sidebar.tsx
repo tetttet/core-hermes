@@ -28,6 +28,7 @@ import {
   PlusIcon,
   SettingsIcon,
   StarIcon,
+  TerminalIcon,
   TrashIcon,
   UserIcon,
   XIcon,
@@ -663,6 +664,17 @@ export function ChatSidebar({
           >
             <InfoIcon className="size-[18px] shrink-0" />
             <span className="sidebar-button-text">{common("about")}</span>
+          </Link>
+        </Tooltip>
+
+        <Tooltip content={t("hcode")} disabled={!isCollapsed} className="mt-0.5 w-full">
+          <Link
+            href="/hcode"
+            onClick={onClose}
+            className={`sidebar-new-chat sidebar-about ${isCollapsed ? "sidebar-new-chat-collapsed" : ""}`}
+          >
+            <TerminalIcon className="size-[18px] shrink-0" />
+            <span className="sidebar-button-text">{t("hcode")}</span>
           </Link>
         </Tooltip>
 
