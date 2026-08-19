@@ -33,4 +33,15 @@ describe("getWelcomeGreeting", () => {
 
     expect(Math.max(...greetings.map((greeting) => greeting.length))).toBeLessThanOrEqual(32);
   });
+
+  it("uses the translated fallback for additional locales", () => {
+    expect(
+      getWelcomeGreeting(
+        new Date("2026-08-11T06:00:00"),
+        { firstName: "Ada", lastName: "Lovelace" },
+        "de",
+        "Wie kann ich helfen?",
+      ),
+    ).toBe("Wie kann ich helfen?");
+  });
 });

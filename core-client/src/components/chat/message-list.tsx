@@ -149,11 +149,12 @@ function useWelcomeGreeting(user: GreetingUser | undefined, locale: string, fall
   const [greeting, setGreeting] = useState(fallback);
 
   useEffect(() => {
-    const update = () => setGreeting(getWelcomeGreeting(new Date(), user, locale));
+    const update = () =>
+      setGreeting(getWelcomeGreeting(new Date(), user, locale, fallback));
     update();
     const interval = window.setInterval(update, 60_000);
     return () => window.clearInterval(interval);
-  }, [locale, user]);
+  }, [fallback, locale, user]);
 
   return greeting;
 }

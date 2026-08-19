@@ -86,7 +86,16 @@ function personalizedGreetings(period: DayPeriod, user: GreetingUser, locale: st
   return greetings[period];
 }
 
-export function getWelcomeGreeting(date: Date, user?: GreetingUser, locale = "ru") {
+export function getWelcomeGreeting(
+  date: Date,
+  user?: GreetingUser,
+  locale = "ru",
+  translatedFallback?: string,
+) {
+  if (locale !== "ru" && locale !== "en" && translatedFallback) {
+    return translatedFallback;
+  }
+
   const period = getDayPeriod(date.getHours());
   const greetings = user?.firstName.trim()
     ? personalizedGreetings(period, user, locale)

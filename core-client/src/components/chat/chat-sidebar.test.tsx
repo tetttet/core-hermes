@@ -259,6 +259,11 @@ describe("ChatSidebar", () => {
     expect(screen.getByRole("menu", { name: "Доступные языки" })).toBeDefined();
     expect(screen.getByRole("menuitem", { name: "English" })).toBeDefined();
     expect(screen.getByRole("menuitem", { name: "Русский" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Español" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Deutsch" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Türkçe" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Italiano" })).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Қазақша" })).toBeDefined();
   });
 
   it("switches language from the current route and closes the mobile sidebar", () => {

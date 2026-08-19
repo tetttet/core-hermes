@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "translate:messages": "node scripts/translate-messages.mjs",
     "check:models": "NODE_NO_WARNINGS=1 node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/check-models.mjs"
   },
   "dependencies": {

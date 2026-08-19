@@ -34,6 +34,7 @@ import {
   XIcon,
 } from "@/components/icons";
 import { Tooltip } from "@/components/tooltip";
+import { localeNames, locales, type AppLocale } from "@/i18n/locales";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   getAuthServerSnapshot,
@@ -537,7 +538,7 @@ export function ChatSidebar({
     }
   }
 
-  function switchLocale(nextLocale: "en" | "ru") {
+  function switchLocale(nextLocale: AppLocale) {
     if (nextLocale === locale || isLocalePending) return;
     setLanguageMenuOpen(false);
     setUserMenuOpen(false);
@@ -825,28 +826,20 @@ export function ChatSidebar({
                 aria-hidden={!languageMenuOpen}
                 data-open={languageMenuOpen}
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  tabIndex={userMenuOpen && languageMenuOpen ? 0 : -1}
-                  className="sidebar-language-option"
-                  aria-current={locale === "en" ? "true" : undefined}
-                  disabled={isLocalePending}
-                  onClick={() => switchLocale("en")}
-                >
-                  {t("english")}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  tabIndex={userMenuOpen && languageMenuOpen ? 0 : -1}
-                  className="sidebar-language-option"
-                  aria-current={locale === "ru" ? "true" : undefined}
-                  disabled={isLocalePending}
-                  onClick={() => switchLocale("ru")}
-                >
-                  {t("russian")}
-                </button>
+                {locales.map((optionLocale) => (
+                  <button
+                    key={optionLocale}
+                    type="button"
+                    role="menuitem"
+                    tabIndex={userMenuOpen && languageMenuOpen ? 0 : -1}
+                    className="sidebar-language-option"
+                    aria-current={locale === optionLocale ? "true" : undefined}
+                    disabled={isLocalePending}
+                    onClick={() => switchLocale(optionLocale)}
+                  >
+                    {localeNames[optionLocale]}
+                  </button>
+                ))}
               </div>
             </div>
             <div className="sidebar-account-menu-divider" />
