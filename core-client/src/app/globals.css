@@ -6822,11 +6822,49 @@ button {
 
 /* hcode documentation */
 .hcode-document-main {
-  width: min(100% - 2rem, 52rem);
+  --hcode-layout-gap: clamp(2rem, 4vw, 3.5rem);
+  width: min(100% - 2rem, 72rem);
 }
 
 .hcode-document-intro {
   position: relative;
+  width: min(100%, calc(65rem + var(--hcode-layout-gap)));
+  margin-left: auto;
+}
+
+.hcode-document-layout {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 52rem);
+  align-items: start;
+  justify-content: end;
+  gap: var(--hcode-layout-gap);
+}
+
+.hcode-document-body {
+  min-width: 0;
+}
+
+.hcode-sidebar {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100dvh - 2rem);
+  align-self: start;
+  overflow-y: auto;
+  margin-top: clamp(1.75rem, 3.5vw, 2.5rem);
+  border-top: 1px solid var(--border-strong);
+  padding-top: 1.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.hcode-sidebar-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 
 .hcode-eyebrow {
@@ -6854,11 +6892,13 @@ button {
 }
 
 .hcode-document-intro h1 {
-  max-width: 46rem;
+  max-width: none;
 }
 
 .hcode-document-intro > p {
-  max-width: 45rem;
+  width: 100%;
+  max-width: none;
+  text-wrap: wrap;
 }
 
 .hcode-hero-links {
@@ -6897,31 +6937,54 @@ button {
 }
 
 .hcode-contents {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  margin-top: 1.5rem;
-  border: 1px solid var(--border-soft);
-  border-radius: 0.85rem;
-  background: var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  margin-top: 0.7rem;
+  counter-reset: hcode-contents;
 }
 
 .hcode-contents a {
-  padding: 0.72rem 0.8rem;
-  background: var(--background);
-  color: var(--foreground-secondary);
-  font-size: 0.72rem;
+  display: grid;
+  grid-template-columns: 1.55rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.4rem;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.6rem;
+  background: transparent;
+  color: var(--muted);
+  counter-increment: hcode-contents;
+  font-size: 0.7rem;
   font-weight: 620;
+  line-height: 1.35;
   text-decoration: none;
   transition:
     background-color 160ms ease,
-    color 160ms ease;
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.hcode-contents a::before {
+  color: var(--muted-soft);
+  content: counter(hcode-contents, decimal-leading-zero);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.58rem;
+  font-weight: 650;
 }
 
 .hcode-contents a:hover {
   background: var(--surface-hover);
   color: var(--foreground);
+  transform: translateX(2px);
+}
+
+.hcode-contents a[data-active="true"] {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.hcode-contents a[data-active="true"]::before {
+  color: var(--accent);
 }
 
 .hcode-platforms {
@@ -7119,6 +7182,59 @@ button {
   letter-spacing: -0.015em;
 }
 
+.hcode-release-grid section {
+  background: color-mix(in srgb, var(--surface-hover) 38%, transparent);
+}
+
+.hcode-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.hcode-mode-grid section {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.85rem;
+  padding: 1rem;
+}
+
+.hcode-mode-grid span {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.3rem 0.48rem;
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hcode-mode-grid h3 {
+  margin: 0.65rem 0 0;
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 660;
+}
+
+.about-document-body .hcode-mode-grid p {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.hcode-subheading {
+  margin: 1.5rem 0 0;
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .about-document-body .hcode-tool-grid p {
   margin-top: 0.3rem;
   font-size: 0.82rem;
@@ -7182,13 +7298,79 @@ button {
 }
 
 .hcode-footer-card {
-  width: min(calc(100vw - 2rem), 60rem);
+  left: auto;
+  width: 100%;
+  transform: none;
+}
+
+@media (max-width: 900px) {
+  .hcode-document-main {
+    width: min(100% - 2rem, 52rem);
+  }
+
+  .hcode-document-layout {
+    display: block;
+  }
+
+  .hcode-sidebar {
+    z-index: 5;
+    top: 0;
+    max-height: none;
+    overflow: hidden;
+    margin-top: 1.5rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 0.85rem;
+    padding: 0.45rem;
+    background: color-mix(in srgb, var(--background) 92%, transparent);
+    box-shadow: 0 0.35rem 1.25rem color-mix(in srgb, var(--shadow) 35%, transparent);
+    backdrop-filter: blur(16px);
+  }
+
+  .hcode-sidebar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .hcode-contents {
+    flex-direction: row;
+    gap: 0.15rem;
+    overflow-x: auto;
+    margin: 0;
+    scrollbar-width: none;
+  }
+
+  .hcode-contents::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hcode-contents a {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: baseline;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .hcode-contents a:hover {
+    transform: none;
+  }
+
+  .hcode-document-body {
+    margin-top: 1rem;
+  }
+
+  .hcode-document-body h2[id] {
+    scroll-margin-top: 4.75rem;
+  }
 }
 
 @media (max-width: 640px) {
-  .hcode-contents,
   .about-document-body .hcode-flow,
-  .hcode-tool-grid {
+  .hcode-tool-grid,
+  .hcode-mode-grid {
     grid-template-columns: 1fr;
   }
 
