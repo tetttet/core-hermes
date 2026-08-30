@@ -1,7 +1,10 @@
 import type { Logger } from "pino";
 import type { AppConfig } from "../config.js";
 import type { ChatAttachment, ChatMessage } from "../lib/chat-input.js";
-import { getModelReasoning, resolveModelRoute } from "../lib/models.js";
+import {
+  getModelReasoning,
+  resolveModelRoute,
+} from "../lib/models.js";
 import type { WebSearchResult } from "./anysearch.js";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -150,6 +153,16 @@ function prepareWebSearchContext(results: WebSearchResult[]): UpstreamMessage {
 
 function retryableStatus(status: number) {
   return status === 408 || status === 409 || status === 429 || status >= 500;
+}
+
+function canUseFallback(error: unknown) {
+  if (!(error instanceof UpstreamFailure)) return true;
+  return (
+    error.retryable ||
+    error.status === 400 ||
+    error.status === 404 ||
+    error.status === 422
+  );
 }
 
 function userError(error: unknown, partial: boolean) {
@@ -372,6 +385,7 @@ export async function runOpenRouterStream(options: RunOptions) {
           overallDeadline,
           Date.now() + options.config.firstTokenTimeoutMs,
         );
+        const reasoning = getModelReasoning(candidate);
         const response = await deadline(
           fetch(OPENROUTER_URL, {
             method: "POST",
@@ -386,7 +400,7 @@ export async function runOpenRouterStream(options: RunOptions) {
               messages: upstreamMessages,
               stream: true,
               max_tokens: 4_096,
-              reasoning: getModelReasoning(candidate),
+              ...(reasoning ? { reasoning } : {}),
               provider: { allow_fallbacks: true },
             }),
             cache: "no-store",
@@ -447,7 +461,7 @@ export async function runOpenRouterStream(options: RunOptions) {
     }
 
     const retryable = lastFailure instanceof UpstreamFailure ? lastFailure.retryable : true;
-    if (!fullContent && retryable && modelIndex < candidates.length - 1) continue;
+    if (!fullContent && canUseFallback(lastFailure) && modelIndex < candidates.length - 1) continue;
     options.emit({ type: "error", error: userError(lastFailure, Boolean(fullContent)), retryable });
     return { success: false as const, content: fullContent, model: finalModel };
   }

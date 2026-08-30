@@ -3,15 +3,15 @@ import type { AttachmentKind } from "./chat-input.js";
 export const AUTO_MODEL_ID = "hermes/auto-vision-safe";
 export const OPENROUTER_FREE_MODEL_ID = "openrouter/free";
 export const VISION_FALLBACK_MODEL_IDS = [
+  OPENROUTER_FREE_MODEL_ID,
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  OPENROUTER_FREE_MODEL_ID,
 ] as const;
 export const TEXT_FALLBACK_MODEL_IDS = [
+  OPENROUTER_FREE_MODEL_ID,
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-nano-30b-a3b:free",
   "openai/gpt-oss-20b:free",
-  OPENROUTER_FREE_MODEL_ID,
 ] as const;
 
 const MANDATORY_REASONING_MODEL_IDS = new Set([
@@ -20,6 +20,10 @@ const MANDATORY_REASONING_MODEL_IDS = new Set([
 ]);
 
 export function getModelReasoning(modelId: string) {
+  // The free router chooses the concrete model after it receives the request.
+  // Do not disable reasoning here: some eligible free models require it.
+  if (modelId === OPENROUTER_FREE_MODEL_ID) return undefined;
+
   return {
     effort: MANDATORY_REASONING_MODEL_IDS.has(modelId) ? "minimal" : "none",
     exclude: true,

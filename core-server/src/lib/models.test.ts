@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   AUTO_MODEL_ID,
+  OPENROUTER_FREE_MODEL_ID,
   TEXT_FALLBACK_MODEL_IDS,
   getModelReasoning,
   isSupportedModel,
@@ -16,14 +17,17 @@ describe("model routing", () => {
   });
 
   it("uses verified fallbacks for Auto and manual text models", () => {
-    assert.deepEqual(
-      resolveModelRoute(AUTO_MODEL_ID, [], true),
-      [...TEXT_FALLBACK_MODEL_IDS],
-    );
+    const autoRoute = resolveModelRoute(AUTO_MODEL_ID, [], true);
+    assert.deepEqual(autoRoute, [...TEXT_FALLBACK_MODEL_IDS]);
+    assert.equal(autoRoute[0], OPENROUTER_FREE_MODEL_ID);
     assert.deepEqual(
       resolveModelRoute("liquid/lfm-2.5-2.6b:free", [], true),
       ["liquid/lfm-2.5-2.6b:free", ...TEXT_FALLBACK_MODEL_IDS],
     );
+  });
+
+  it("lets the free router select its model-specific reasoning behavior", () => {
+    assert.equal(getModelReasoning(OPENROUTER_FREE_MODEL_ID), undefined);
   });
 
   it("keeps mandatory reasoning enabled and disables optional reasoning", () => {
