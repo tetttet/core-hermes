@@ -686,6 +686,7 @@ function ModelSettings() {
         <div className="model-list">
           {MODELS.map((model) => {
             const isSelected = store.draftModelId === model.id;
+            const descriptionKey = getModelDescriptionKey(model.id);
             return (
               <article
                 className="model-card"
@@ -700,7 +701,7 @@ function ModelSettings() {
                       <span className="model-selected">{t("default")}</span>
                     ) : null}
                   </div>
-                  <p>{models(`descriptions.${getModelDescriptionKey(model.id)}`)}</p>
+                  <p>{descriptionKey ? models(`descriptions.${descriptionKey}`) : model.description}</p>
                   <code>{model.id}</code>
                 </div>
                 <div className="model-badges">

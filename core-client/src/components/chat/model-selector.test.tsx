@@ -23,7 +23,7 @@ describe("ModelSelector", () => {
     fireEvent.click(screen.getByRole("button", { name: /Другие модели/ }));
 
     expect(screen.queryByText("Универсальные")).toBeNull();
-    expect(screen.queryByText("Фото и видео")).toBeNull();
+    expect(screen.getByText("Фото и видео")).toBeDefined();
     expect(screen.getByText("Код и разработка")).toBeDefined();
     expect(screen.getByText("Глубокое мышление")).toBeDefined();
     expect(screen.getByText("Быстрые и компактные")).toBeDefined();

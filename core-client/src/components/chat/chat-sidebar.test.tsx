@@ -203,6 +203,49 @@ describe("ChatSidebar", () => {
     expect(screen.getByText("Недавние")).toBeDefined();
   });
 
+  it("places each section label before its chats", () => {
+    const favoriteChats: ChatThread[] = [3, 2, 1].map((index) => ({
+      ...chats[0],
+      id: `chat-favorite-${index}`,
+      title: `Избранный разговор ${index}`,
+      isFavorite: true,
+      updatedAt: index,
+    }));
+    const { container } = render(
+      <ChatSidebar
+        chats={[...chats, ...favoriteChats]}
+        activeChatId="chat-1"
+        isOpen
+        isBusy={false}
+        isCollapsed={false}
+        onClose={vi.fn()}
+        onNewChat={vi.fn()}
+        onSelectChat={vi.fn()}
+        onDeleteChat={vi.fn()}
+        onRenameChat={vi.fn()}
+        onToggleFavoriteChat={vi.fn()}
+        onToggleCollapse={vi.fn()}
+      />,
+    );
+
+    const scrollableList = container.querySelector(".sidebar-chat-list");
+    expect(scrollableList?.className).toContain("overflow-y-auto");
+    const labelsAndTitles = Array.from(
+      scrollableList!.querySelectorAll(
+        ".sidebar-chat-section-label, .sidebar-chat-title",
+      ),
+      (element) => element.textContent,
+    );
+    expect(labelsAndTitles).toEqual([
+      "Избранные",
+      "Избранный разговор 3",
+      "Избранный разговор 2",
+      "Избранный разговор 1",
+      "Недавние",
+      "Очень важный разговор",
+    ]);
+  });
+
   it("offers a favorite action in the three-dot menu", () => {
     const onToggleFavoriteChat = vi.fn();
     render(

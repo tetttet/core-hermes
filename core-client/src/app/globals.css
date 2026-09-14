@@ -367,6 +367,7 @@ button {
   transition: background-color 120ms ease;
 }
 
+.sidebar-chat-panel,
 .sidebar-chat-list {
   display: flex;
   flex-direction: column;
@@ -464,7 +465,8 @@ button {
 }
 
 .sidebar-chat-section-label {
-  margin-top: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 0.5rem;
   margin-bottom: 0.2rem;
   font-size: 0.6875rem;
   font-weight: 400;

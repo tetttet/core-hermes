@@ -681,61 +681,20 @@ export function ChatSidebar({
 
         {/* Chat list */}
         <nav
-          className={`sidebar-chat-list mt-4 min-h-0 flex-1 overflow-y-auto ${isCollapsed ? "sidebar-nav-collapsed" : ""}`}
+          className={`sidebar-chat-panel mt-4 min-h-0 flex-1 ${isCollapsed ? "sidebar-nav-collapsed" : ""}`}
           aria-label={t("chats")}
           aria-busy={isLoadingChats || isLoadingMoreChats}
         >
-          {favoriteChats.length > 0 ? (
-            <div className="sidebar-label sidebar-chat-section-label px-2">
-              {t("favorites")}
-            </div>
-          ) : null}
-          {favoriteChats.map((chat) => (
-            <div
-              key={chat.id}
-              ref={(element) => {
-                if (element) motionItemsRef.current.set(chat.id, element);
-                else motionItemsRef.current.delete(chat.id);
-              }}
-              className="sidebar-chat-motion"
-            >
-              <ChatItem
-                chat={chat}
-                isActive={activeChatId === chat.id}
-                isBusy={isBusy}
-                isCollapsed={isCollapsed}
-                onSelect={() => onSelectChat(chat.id)}
-                onDelete={() => setConfirmDeleteId(chat.id)}
-                onRename={(newTitle) => onRenameChat(chat.id, newTitle)}
-                onToggleFavorite={() => onToggleFavoriteChat(chat.id)}
-              />
-            </div>
-          ))}
-
-          <div className="sidebar-label sidebar-chat-section-label px-2">
-            {t("recent")}
-          </div>
-          {isLoadingChats && recentChats.length === 0 && favoriteChats.length === 0 ? (
-            <ChatListSkeleton isCollapsed={isCollapsed} />
-          ) : chatListError && recentChats.length === 0 && favoriteChats.length === 0 ? (
-            <div className="sidebar-chat-load-error px-2 py-3" role="alert">
-              <p className="sidebar-muted text-sm leading-5">{chatListError}</p>
-              {onRetryChats ? (
-                <button
-                  type="button"
-                  className="sidebar-load-more"
-                  onClick={onRetryChats}
-                >
-                  {common("retry")}
-                </button>
-              ) : null}
-            </div>
-          ) : recentChats.length === 0 && favoriteChats.length === 0 ? (
-            <p className="sidebar-muted px-2 py-3 text-sm leading-5">
-              {t("empty")}
-            </p>
-          ) : (
-            recentChats.map((chat) => (
+          <div className="sidebar-chat-list min-h-0 flex-1 overflow-y-auto">
+            {favoriteChats.length > 0 ? (
+              <div
+                className="sidebar-label sidebar-chat-section-label px-2"
+                aria-hidden={isCollapsed}
+              >
+                {t("favorites")}
+              </div>
+            ) : null}
+            {favoriteChats.map((chat) => (
               <div
                 key={chat.id}
                 ref={(element) => {
@@ -755,19 +714,68 @@ export function ChatSidebar({
                   onToggleFavorite={() => onToggleFavoriteChat(chat.id)}
                 />
               </div>
-            ))
-          )}
+            ))}
 
-          {hasMoreChats && onLoadMoreChats && !isCollapsed ? (
-            <button
-              type="button"
-              className="sidebar-load-more"
-              disabled={isLoadingMoreChats}
-              onClick={onLoadMoreChats}
+            <div
+              className="sidebar-label sidebar-chat-section-label px-2"
+              aria-hidden={isCollapsed}
             >
-              {isLoadingMoreChats ? t("loadingMore") : t("showMore")}
-            </button>
-          ) : null}
+              {t("recent")}
+            </div>
+            {isLoadingChats && recentChats.length === 0 && favoriteChats.length === 0 ? (
+              <ChatListSkeleton isCollapsed={isCollapsed} />
+            ) : chatListError && recentChats.length === 0 && favoriteChats.length === 0 ? (
+              <div className="sidebar-chat-load-error px-2 py-3" role="alert">
+                <p className="sidebar-muted text-sm leading-5">{chatListError}</p>
+                {onRetryChats ? (
+                  <button
+                    type="button"
+                    className="sidebar-load-more"
+                    onClick={onRetryChats}
+                  >
+                    {common("retry")}
+                  </button>
+                ) : null}
+              </div>
+            ) : recentChats.length === 0 && favoriteChats.length === 0 ? (
+              <p className="sidebar-muted px-2 py-3 text-sm leading-5">
+                {t("empty")}
+              </p>
+            ) : (
+              recentChats.map((chat) => (
+                <div
+                  key={chat.id}
+                  ref={(element) => {
+                    if (element) motionItemsRef.current.set(chat.id, element);
+                    else motionItemsRef.current.delete(chat.id);
+                  }}
+                  className="sidebar-chat-motion"
+                >
+                  <ChatItem
+                    chat={chat}
+                    isActive={activeChatId === chat.id}
+                    isBusy={isBusy}
+                    isCollapsed={isCollapsed}
+                    onSelect={() => onSelectChat(chat.id)}
+                    onDelete={() => setConfirmDeleteId(chat.id)}
+                    onRename={(newTitle) => onRenameChat(chat.id, newTitle)}
+                    onToggleFavorite={() => onToggleFavoriteChat(chat.id)}
+                  />
+                </div>
+              ))
+            )}
+
+            {hasMoreChats && onLoadMoreChats && !isCollapsed ? (
+              <button
+                type="button"
+                className="sidebar-load-more"
+                disabled={isLoadingMoreChats}
+                onClick={onLoadMoreChats}
+              >
+                {isLoadingMoreChats ? t("loadingMore") : t("showMore")}
+              </button>
+            ) : null}
+          </div>
         </nav>
 
         {/* Footer */}

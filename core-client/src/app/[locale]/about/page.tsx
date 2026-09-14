@@ -77,15 +77,7 @@ export default async function AboutPage({ params }: AboutPageProps) {
           <p>{t("modelsText")}</p>
           <ul aria-label={t("auditedModels")}>
             {auditedModels.map((model) => (
-              <li key={model.id}>
-                <strong>{model.title}</strong> — {models(`descriptions.${getModelDescriptionKey(model.id)}`)} {model.provider}, {models(getModelCapabilityKey(model)).toLocaleLowerCase(locale)},
-                {" "}
-                {model.license ? (
-                  <a href={model.license.url} target="_blank" rel="noreferrer">
-                    {model.license.name}
-                  </a>
-                ) : null}.
-              </li>
+              <ModelListItem key={model.id} locale={locale} model={model} models={models} />
             ))}
           </ul>
 
@@ -101,8 +93,8 @@ export default async function AboutPage({ params }: AboutPageProps) {
           <h2>{t("freshnessTitle")}</h2>
           <p>
             {t("freshnessBefore")} {" "}
-            <time dateTime="2026-08-16">
-              {new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date("2026-08-16T00:00:00Z"))}
+            <time dateTime="2026-08-30">
+              {new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date("2026-08-30T00:00:00Z"))}
             </time>
             {t("freshnessAfter")} {" "}
             <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer">
@@ -112,5 +104,30 @@ export default async function AboutPage({ params }: AboutPageProps) {
         </article>
       </main>
     </div>
+  );
+}
+
+function ModelListItem({
+  locale,
+  model,
+  models,
+}: {
+  locale: string;
+  model: (typeof auditedModels)[number];
+  models: Awaited<ReturnType<typeof getTranslations>>;
+}) {
+  const descriptionKey = getModelDescriptionKey(model.id);
+  return (
+    <li>
+      <strong>{model.title}</strong> — {descriptionKey ? models(`descriptions.${descriptionKey}`) : model.description} {model.provider}, {models(getModelCapabilityKey(model)).toLocaleLowerCase(locale)}
+      {model.license ? (
+        <>
+          {" "}
+          <a href={model.license.url} target="_blank" rel="noreferrer">
+            {model.license.name}
+          </a>
+        </>
+      ) : null}.
+    </li>
   );
 }

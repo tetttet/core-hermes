@@ -25,13 +25,10 @@ const SHORT_MODEL_TITLES: Record<string, string> = {
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "Nemotron Omni",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron Ultra",
   "nvidia/nemotron-3-super-120b-a12b:free": "Nemotron Super",
-  "nvidia/nemotron-3-nano-30b-a3b:free": "Nemotron Nano 30B",
-  "openai/gpt-oss-20b:free": "GPT-OSS 20B",
   "poolside/laguna-s-2.1:free": "Laguna S",
   "poolside/laguna-xs-2.1:free": "Laguna XS",
   "cohere/north-mini-code:free": "North Mini Code",
   "nvidia/nemotron-3.5-lightning:free": "Nemotron Lightning",
-  "nvidia/nemotron-nano-9b-v2:free": "Nemotron Nano 9B",
 };
 
 const SHORT_MODEL_DESCRIPTION_KEYS: Record<string, string> = {
@@ -40,13 +37,10 @@ const SHORT_MODEL_DESCRIPTION_KEYS: Record<string, string> = {
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "omniDescription",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "ultraDescription",
   "nvidia/nemotron-3-super-120b-a12b:free": "superDescription",
-  "nvidia/nemotron-3-nano-30b-a3b:free": "nano30Description",
-  "openai/gpt-oss-20b:free": "gptOssDescription",
   "poolside/laguna-s-2.1:free": "lagunaSDescription",
   "poolside/laguna-xs-2.1:free": "lagunaXsDescription",
   "cohere/north-mini-code:free": "northDescription",
   "nvidia/nemotron-3.5-lightning:free": "lightningDescription",
-  "nvidia/nemotron-nano-9b-v2:free": "nano9Description",
 };
 
 const MODEL_GROUPS: readonly { id: ModelGroup; labelKey: string }[] = [
